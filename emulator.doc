@@ -1,0 +1,98 @@
+
+=== Command-line switches ===
+
+-D
+  Use double buffering for the display.
+
+-F
+  Start in full screen mode.
+
+-N
+  Tells the window manager to omit the frame.
+
+-Q
+  Disable the mouse initially (it can still be enabled at run time).
+
+-T year.month.day.hours.minutes.seconds.wday.yday.yday.isdst
+  Use a fixed value for the date/time, by numbers with dots in between. In
+  this case, it will read the same values from the date/time device each
+  time it is read. If you put less numbers than expected, then zero will
+  be used for the remaining values; however, some programs will use these
+  values to seed a random number generator and will not work correctly if
+  they are zero.
+
+-Y
+  Enable file system access including writing.
+
+-Z
+  Use UTC instead of local time. (Has no effect in combination with -T.)
+
+-d
+  Enable some debugging features. (Some will work even without this.)
+
+-h #
+  Set default screen height.
+
+-i
+  Hide the system mouse cursor. (The Uxn program might still draw its own
+  mouse cursor, which most do.)
+
+-n
+  Disable GUI. This switch is required in order to read stdin; without it,
+  stdin cannot be read (although command-line arguments still work).
+
+-p #
+  Select the palette. Valid palette numbers are 0 to 7, where 7 is the
+  default setting and means that the running Uxn program can set colours.
+
+-q
+  Disable standard I/O.
+
+-t #
+  Set the frame rate, in milliseconds per frame.
+
+-w #
+  Set default screen width.
+
+-y
+  Enable read-only file system access.
+
+-z #
+  Set zoom level.
+
+
+=== Function keys ===
+
+F1
+  Advance one frame, even if paused.
+
+F3
+  Toggle the mouse mode. When the mouse mode is disabled, the mouse device
+  does not work; the mouse vector is not called and the mouse coordinates
+  and button state is not updated.
+
+F4
+  Change which graphics layers are displayed. Either both layers, or only
+  foreground or only background.
+
+F5
+  Redraw screen. If the right shift key is also pushed, then also sends
+  some debug output to stderr.
+
+F6 / F7
+  Palette selection.
+
+F9
+  Restart.
+
+F10
+  Quit.
+
+PAUSE
+  Pause/unpause VM.
+
+Some programs use shortcut keys with control and letters. This does not
+work in this program; therefore, END is an alias for the joypad A button
+(the left control key also corresponds to the joypad A button, but if used
+together with letter keys, will enter control characters instead).
+

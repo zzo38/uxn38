@@ -20,7 +20,7 @@ exit
 
 typedef struct {
   Uint8 p;
-  Uint8 d[255];
+  Uint8 d[256];
 } Stack;
 
 typedef struct Device {
@@ -149,6 +149,7 @@ static volatile Uint8 timer_expired=0;
 static SDL_Surface*screen;
 static Uint8 layers;
 static Uint8 palet=7;
+static Uint8 bicycle=0;
 
 static void debug(int i) {
   if(i) fprintf(stderr,"Debug(%02X)\n",i);
@@ -167,11 +168,11 @@ static void uxnerr(int n,int pc) {
   errx(2,"Uxn error %d at 0x%04X",n,pc);
 }
 
-#define Push8(z) ({ if(s->p>254) uxnerr(2,pc); s->d[s->p++]=(z); })
-#define Push16(z) ({ if(s->p>253) uxnerr(2,pc); s->d[s->p++]=(z)>>8; s->d[s->p++]=(z); })
-#define Push(z) ({ if(s->p>(v&0x20?253:254)) uxnerr(2,pc); if(v&0x20) s->d[s->p++]=(z)>>8; s->d[s->p++]=(z); })
-#define Pop8(z) ({ if(!k) uxnerr(1,pc); z=s->d[--k]; if(v<0x80) s->p=k; })
-#define Pop16(z) ({ if(k<2) uxnerr(1,pc); z=s->d[--k]; z|=s->d[--k]<<8; if(v<0x80) s->p=k; })
+#define Push8(z) ({ if(s->p>254) {v=2; goto error;} s->d[s->p++]=(z); })
+#define Push16(z) ({ if(s->p>253) {v=2; goto error;} s->d[s->p++]=(z)>>8; s->d[s->p++]=(z); })
+#define Push(z) ({ if(s->p>(v&0x20?253:254)) {v=2; goto error;} if(v&0x20) s->d[s->p++]=(z)>>8; s->d[s->p++]=(z); })
+#define Pop8(z) ({ if(!k) {v=1; goto error;} z=s->d[--k]; if(v<0x80) s->p=k; })
+#define Pop16(z) ({ if(k<2) {v=1; goto error;} z=s->d[--k]; z|=s->d[--k]<<8; if(v<0x80) s->p=k; })
 #define Pop(z) ({ if(v&0x20) Pop16(z); else Pop8(z); })
 
 static void run(Uint16 pc) {
@@ -179,6 +180,7 @@ static void run(Uint16 pc) {
   Uint8 k,v;
   Uint16 x,y,z;
   if(!pc) return;
+  start:
   while(v=mem[pc++]) {
     // if(use_debug) printf("! pc=%04X v=%02X ds=%02X rs=%02X\n",pc-1,v,ds.p,rs.p);
     s=(v&0x40?&rs:&ds);
@@ -229,7 +231,7 @@ static void run(Uint16 pc) {
       case 0x18: Pop(x); Pop(y); Push(y+x); break;
       case 0x19: Pop(x); Pop(y); Push(y-x); break;
       case 0x1A: Pop(x); Pop(y); Push(y*x); break;
-      case 0x1B: Pop(x); Pop(y); if(!x) uxnerr(3,pc); Push(y/x); break;
+      case 0x1B: Pop(x); Pop(y); if(!x) {v=3; goto error;} Push(y/x); break;
       case 0x1C: Pop(x); Pop(y); Push(y&x); break;
       case 0x1D: Pop(x); Pop(y); Push(y|x); break;
       case 0x1E: Pop(x); Pop(y); Push(y^x); break;
@@ -246,6 +248,20 @@ static void run(Uint16 pc) {
     }
   }
   fflush(stdout);
+  if(bicycle && (k=device[0].d[2])) {
+    memcpy(mem+(k<<8),ds.d,254);
+    mem[(k<<8)+0xFF]=ds.p;
+  }
+  return;
+  error:
+  if(bicycle && (device[0].d[0] || device[0].d[1])) {
+    if(device[0].d[2]) mem[(device[0].d[2]<<8)+0xFE]=v; else fprintf(stderr,"Uxn error %d at 0x%04X\n",v,pc);
+    pc=GET16(device[0].d);
+    ds.p=rs.p=0;
+    goto start;
+  } else {
+    uxnerr(v,pc);
+  }
 }
 
 static void load_rom(void) {
@@ -262,16 +278,27 @@ static void default_out(Device*misc1,Uint8 misc2) {}
 
 static Uint8 system_in(Device*dev,Uint8 id) {
   switch(id) {
-    case 2: return rs.p;
-    case 3: return ds.p;
+    case 2: return ds.p;
+    case 3: return rs.p;
     default: return dev->d[id];
   }
 }
 
 static void system_out(Device*dev,Uint8 id) {
   switch(id) {
-    case 2: rs.p=dev->d[2]; break;
-    case 3: ds.p=dev->d[3]; break;
+    case 2:
+      if(bicycle) {
+        if(dev->d[2]) {
+          memcpy(ds.d,mem+(dev->d[2]<<8),256);
+          ds.p=mem[(dev->d[2]<<8)+0xFF];
+        } else {
+          ds.p=0;
+        }
+      } else {
+        ds.p=dev->d[2];
+      }
+      break;
+    case 3: if(!bicycle) rs.p=dev->d[3]; break;
     case 8 ... 13:
       if(!screen) break;
       colors[070].r=colors[074].r=(dev->d[8]>>4)*0x11;
@@ -686,7 +713,8 @@ int main(int argc,char**argv) {
   device[10].aux=&uxnfile0;
   device[11].aux=&uxnfile1;
   device[12].in=datetime_in;
-  while((i=getopt(argc,argv,"+ADFNQT:YZdh:inp:qt:w:xyz:"))>0) switch(i) {
+  while((i=getopt(argc,argv,"+ABDFNQT:YZdh:inp:qt:w:xyz:"))>0) switch(i) {
+    case 'B': bicycle=1; device[0].in=default_in; break;
     case 'D': scrflags|=SDL_DOUBLEBUF; break;
     case 'F': scrflags|=SDL_FULLSCREEN; break;
     case 'N': scrflags|=SDL_NOFRAME; break;

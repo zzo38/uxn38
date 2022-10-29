@@ -54,6 +54,9 @@
 -w #
   Set default screen width.
 
+-x
+  Enable extension device (only built-in extensions).
+
 -y
   Enable read-only file system access.
 
@@ -95,4 +98,72 @@ Some programs use shortcut keys with control and letters. This does not
 work in this program; therefore, END is an alias for the joypad A button
 (the left control key also corresponds to the joypad A button, but if used
 together with letter keys, will enter control characters instead).
+
+
+=== Extension device ===
+
+Device fifteen is the extension device, which is defined as:
+  f0 = vector *
+  f1
+  f2 = conventional memory transfer base *
+  f3
+  f4 = expanded memory transfer base *
+  f5
+  f6 = transfer length *
+  f7
+  f8 = transfer operation
+  f9 = device version
+  fa = device seven UUID address *
+  fb
+  fc = device thirteen UUID address *
+  fd
+  fe = device fourteen UUID address *
+  ff
+
+The transfer operation is used for copying data to/from expanded memory.
+Use the bits as following:
+
+* bit0 = Set to transfer conventional to expanded memory, or clear to
+transfer expanded to conventional memory.
+
+* bit1 = Selects which page of expanded memory to use.
+
+Other bits are reserved and must be clear.
+
+If the program file is too big to fit into conventional memory, then as
+much as will fit of the rest will be loaded into expanded memory.
+
+Writing to the UUID address ports will read sixteen bytes at that address
+and then will set the device version field to the version number, which
+can be zero if it is not implemented, an odd number for an unstable
+implementation, or an even number for a stable implementation. (The memory
+that it points to can be reused afterward with no problem.)
+
+The vector is called after passing command-line arguments, but before any
+other events occur.
+
+(Note: Using this feature will make the program not portable to other
+implementations, and should be avoided if possible. However, it is
+available if its functions (e.g. expanded memory) are needed in your
+program for any reason. Most programs probably will not need expanded
+memory; some might be able to optionally use it.)
+
+
+=== Extension loading ===
+
+(This section describes a feature which is not implemented yet. Some
+details might be changed before being implemented.)
+
+Some extensions may be implemented internally if that is necessary, but it
+is expected that most extensions might be external, so that it is possible
+to avoid putting too many things into the emulator.
+
+In the specified directory, are files named by the UUID (in lowercase
+hexadecimal with hyphens) followed by ".so". This must export a function
+named "uxn_extension_main", which is called the first time the extension
+is loaded by the device UUID address fields being filled in by the Uxn
+program. This function should return a pointer to the UxnExtension
+structure for this extension, or null if it is somehow not valid. The
+first argument is a pointer to the (binary) UUID, which can be used in
+case the same file implements multiple extensions.
 

@@ -296,6 +296,29 @@ static void system_out(Device*dev,Uint8 id) {
   }
 }
 
+static void extension_out(Device*dev,Uint8 id) {
+  Uint8*p;
+  Uint8*q;
+  Uint16 x,y;
+  Uint16 len;
+  switch(id) {
+    case 8:
+      x=GET16(dev->d+2);
+      y=GET16(dev->d+4);
+      len=GET16(dev->d+6);
+      if(dev->d[8]&4) len=256;
+      if(x+len>0x10000 || y+len>0x10000) uxnerr(5,x);
+      *(dev->d[8]&1?&p:&q)=mem+x;
+      *(dev->d[8]&1?&q:&p)=mem+y+(dev->d[8]&2?0x20000:0x10000);
+      memcpy(q,p,len);
+      dev->d[8]=0;
+      break;
+    case 11: case 13: case 15:
+      dev->d[9]=0;
+      break;
+  }
+}
+
 static void console_out(Device*dev,Uint8 id) {
   switch(id) {
     case 8: putchar(dev->d[8]); break;
@@ -663,8 +686,7 @@ int main(int argc,char**argv) {
   device[10].aux=&uxnfile0;
   device[11].aux=&uxnfile1;
   device[12].in=datetime_in;
-  while((i=getopt(argc,argv,"+ADFNQT:YZdh:inp:qt:w:yz:"))>0) switch(i) {
-    case 'A': scrflags|=SDL_ASYNCBLIT; break;
+  while((i=getopt(argc,argv,"+ADFNQT:YZdh:inp:qt:w:xyz:"))>0) switch(i) {
     case 'D': scrflags|=SDL_DOUBLEBUF; break;
     case 'F': scrflags|=SDL_FULLSCREEN; break;
     case 'N': scrflags|=SDL_NOFRAME; break;
@@ -680,6 +702,7 @@ int main(int argc,char**argv) {
     case 'q': use_console=0; break;
     case 't': timer_rate=strtol(optarg,0,10); break;
     case 'w': default_width=strtol(optarg,0,10); break;
+    case 'x': device[15].out=extension_out; break;
     case 'y': allow_write=0; device[10].out=device[11].out=files_out; device[10].in=device[11].in=files_in; break;
     case 'z': zoom=strtol(optarg,0,10); break;
     default: return 1;
@@ -715,6 +738,7 @@ int main(int argc,char**argv) {
     device[1].d[2]='\n';
     run(GET16(device[1].d));
   }
+  if(device[15].out==extension_out) run(GET16(device[15].d));
   if(use_screen) {
     while(run_screen()) {
       for(i=0;i<15;i++) for(j=0;j<16;j++) device[i].d[j]=0;

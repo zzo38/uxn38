@@ -248,9 +248,15 @@ static void run(Uint16 pc) {
     }
   }
   fflush(stdout);
-  if(bicycle && (k=device[0].d[2])) {
-    memcpy(mem+(k<<8),ds.d,254);
-    mem[(k<<8)+0xFF]=ds.p;
+  if(bicycle) {
+    if(k=device[0].d[2]) {
+      memcpy(mem+(k<<8),ds.d,254);
+      mem[(k<<8)+0xFF]=ds.p;
+    }
+    if(k=device[0].d[3]) {
+      memcpy(mem+(k<<8),rs.d,254);
+      mem[(k<<8)+0xFF]=rs.p;
+    }
   }
   return;
   error:
@@ -298,7 +304,18 @@ static void system_out(Device*dev,Uint8 id) {
         ds.p=dev->d[2];
       }
       break;
-    case 3: if(!bicycle) rs.p=dev->d[3]; break;
+    case 3:
+      if(bicycle) {
+        if(dev->d[3]) {
+          memcpy(ds.d,mem+(dev->d[3]<<8),256);
+          rs.p=mem[(dev->d[3]<<8)+0xFF];
+        } else {
+          rs.p=0;
+        }
+      } else {
+        rs.p=dev->d[3];
+      }
+      break;
     case 8 ... 13:
       if(!screen) break;
       colors[070].r=colors[074].r=(dev->d[8]>>4)*0x11;
@@ -330,14 +347,16 @@ static void extension_out(Device*dev,Uint8 id) {
   Uint16 len;
   switch(id) {
     case 8:
-      x=GET16(dev->d+2);
-      y=GET16(dev->d+4);
-      len=GET16(dev->d+6);
-      if(dev->d[8]&4) len=256;
-      if(x+len>0x10000 || y+len>0x10000) uxnerr(5,x);
-      *(dev->d[8]&1?&p:&q)=mem+x;
-      *(dev->d[8]&1?&q:&p)=mem+y+(dev->d[8]&2?0x20000:0x10000);
-      memcpy(q,p,len);
+      if((dev->d[8]>>4)==0) {
+        x=GET16(dev->d+2);
+        y=GET16(dev->d+4);
+        len=GET16(dev->d+6);
+        if(dev->d[8]&4) len=256;
+        if(x+len>0x10000 || y+len>0x10000) uxnerr(5,x);
+        *(dev->d[8]&1?&p:&q)=mem+x;
+        *(dev->d[8]&1?&q:&p)=mem+y+(dev->d[8]&2?0x20000:0x10000);
+        memcpy(q,p,len);
+      }
       dev->d[8]=0;
       break;
     case 11: case 13: case 15:

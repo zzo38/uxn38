@@ -263,6 +263,7 @@ static void run(Uint16 pc) {
   if(bicycle && (device[0].d[0] || device[0].d[1])) {
     if(device[0].d[2]) mem[(device[0].d[2]<<8)+0xFE]=v; else fprintf(stderr,"Uxn error %d at 0x%04X\n",v,pc);
     pc=GET16(device[0].d);
+    PUT16(device[0].d,0);
     ds.p=rs.p=0;
     goto start;
   } else {
@@ -347,15 +348,17 @@ static void extension_out(Device*dev,Uint8 id) {
   Uint16 len;
   switch(id) {
     case 8:
-      if((dev->d[8]>>4)==0) {
-        x=GET16(dev->d+2);
-        y=GET16(dev->d+4);
-        len=GET16(dev->d+6);
-        if(dev->d[8]&4) len=256;
-        if(x+len>0x10000 || y+len>0x10000) uxnerr(5,x);
-        *(dev->d[8]&1?&p:&q)=mem+x;
-        *(dev->d[8]&1?&q:&p)=mem+y+(dev->d[8]&2?0x20000:0x10000);
-        memcpy(q,p,len);
+      switch(dev->d[8]>>4) {
+        case 0:
+          x=GET16(dev->d+2);
+          y=GET16(dev->d+4);
+          len=GET16(dev->d+6);
+          if(dev->d[8]&4) len=256;
+          if(x+len>0x10000 || y+len>0x10000) uxnerr(5,x);
+          *(dev->d[8]&1?&p:&q)=mem+x;
+          *(dev->d[8]&1?&q:&p)=mem+y+(dev->d[8]&2?0x20000:0x10000);
+          memcpy(q,p,len);
+          break;
       }
       dev->d[8]=0;
       break;
@@ -418,7 +421,7 @@ static void files_out(Device*dev,Uint8 id) {
         x=fread(mem+addr,1,len,uf->file);
         PUT16(dev->d+2,x);
         if(ferror(uf->file)) {
-          warn("Error reading file");
+          warn("Error reading file '%s'",uf->name);
           clearerr(uf->file);
         }
       } else if(uf->mode==3) {
@@ -430,23 +433,47 @@ static void files_out(Device*dev,Uint8 id) {
         uf->dir=0;
         uf->de=0;
         if(!uf->name[0]) break;
-        if(uf->name[0]=='.' && !uf->name[1] && (uf->dir=opendir(uf->name))) {
+        if(uf->dir=opendir(uf->name)) {
           uf->mode=3;
           goto read;
         } else if(uf->file=fopen(uf->name,"r")) {
           uf->mode=1;
           goto read;
         } else {
-          warn("Cannot open file for reading");
+          warn("Cannot open file '%s' for reading",uf->name);
         }
       }
       break;
     case 15:
       addr=GET16(dev->d+14);
       dev->d[2]=dev->d[3]=0;
-      if(!allow_write) break;
+      if(!allow_write) {
+        warnx("Not allowed to write to file '%s'.",uf->name);
+        break;
+      }
       write:
-      //TODO
+      if(uf->mode==2) {
+        if(!len) break;
+        x=fwrite(mem+addr,1,len,uf->file);
+        PUT16(dev->d+2,x);
+        if(ferror(uf->file)) {
+          warn("Error writing file '%s'",uf->name);
+          clearerr(uf->file);
+        }
+      } else {
+        if(uf->file) fclose(uf->file);
+        if(uf->dir) closedir(uf->dir);
+        uf->file=0;
+        uf->dir=0;
+        uf->de=0;
+        if(!uf->name[0]) break;
+        if(uf->file=fopen(uf->name,dev->d[7]?"a":"w")) {
+          uf->mode=2;
+          goto read;
+        } else {
+          warn("Cannot open file '%s' for %sing",uf->name,dev->d[7]?"append":"writ");
+        }
+      }
       break;
   }
 }
@@ -462,7 +489,7 @@ static Uint8 files_in(Device*dev,Uint8 id) {
         c=fgetc(uf->file);
         if(c==EOF) {
           if(ferror(uf->file)) {
-            warn("Error reading file");
+            warn("Error reading file '%s'",uf->name);
             clearerr(uf->file);
           }
           c=0;
@@ -486,7 +513,7 @@ static Uint8 files_in(Device*dev,Uint8 id) {
           uf->mode=1;
           goto read;
         } else {
-          warn("Cannot open file for reading");
+          warn("Cannot open file '%s' for reading",uf->name);
         }
       }
       return 0;

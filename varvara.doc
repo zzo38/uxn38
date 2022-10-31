@@ -1,0 +1,183 @@
+This document describes the devices of Uxn virtual machine.
+
+The high nybble of the port number selects one of the following devices:
+  0 = System
+  1 = Standard I/O
+  2 = Screen
+  3 = Audio
+  4 = Audio
+  5 = Audio
+  6 = Audio
+  7 = MIDI
+  8 = Keyboard/joypad
+  9 = Mouse
+  A = File
+  B = File
+  C = Date/time
+  D = ---
+  E = Implementation dependent
+  F = Implementation dependent
+
+Note that there are four audio channels, and two files can be opened at
+the same time.
+
+In the below lists, asterisks indicate 16-bit ports.
+
+
+=== System ===
+
+00 = Vector *
+02 = Data stack
+03 = Return stack
+08 = Colours (red) *
+0A = Colours (green) *
+0C = Colours (blue) *
+0E = Debug
+0F = Quit
+
+Some implementations call the system vector if an error occurs.
+
+The data stack and return stack ports have a different meaning in different
+implementations, and probably should not be used by most programs.
+
+The colours control the colours of the display, where the high nybble of
+each controls the value for colour index 0, and the low nybble of each
+controls the value for colour index 3.
+
+Writing nonzero to the debug port will display some debug info.
+
+Writing nonzero to the quit port terminates the program.
+
+
+=== Standard I/O ===
+
+10 = Vector *
+12 = Input
+18 = Output
+19 = Error
+
+Each byte of input is received from stdin will result in setting the input
+port to the byte read and calls the vector. Immediately after the first
+BRK (and before any other events), any command-line arguments are also
+sent in this way as though each one is a line of input from stdin
+terminated by a line feed.
+
+Writing to the output and error ports write a byte to stdout or stderr.
+
+
+=== Screen ===
+
+20 = Vector *
+22 = Width *
+24 = Height *
+26 = Auto
+28 = X *
+2A = Y *
+2C = Sprite address *
+2E = Pixel command
+2F = Sprite command
+
+The screen has two layers (background and foreground), and can display four
+colours. If the foreground colour is zero then the background is displayed.
+
+The vector is called during each video frame (60 frames per second).
+
+The auto port works as follows:
+  bit7-bit4 = One less than number of sprites to draw
+  bit3 = Unused (should be clear)
+  bit2 = Address
+  bit1 = Y
+  bit0 = X
+
+Writing to the pixel command port will change the pixel at the specified
+coordinates. The low 2-bits specify what colour to use, and bit6 specifies
+the layer (set for foreground, clear for background). It will automatically
+increment X and/or Y if the corresponding bits of the auto port are set.
+
+Writing to the sprite command port will draw one or more sprites. The bits
+are as follows:
+  bit7 = Set for 2bpp sprites, clear for 1bpp
+  bit6 = Set for foreground layer, clear for background layer
+  bit5 = Vertical flip
+  bit4 = Horizontal flip
+  bit3-bit0 = Colour
+
+
+=== Audio ===
+
+(TODO)
+
+
+=== MIDI ===
+
+(TODO)
+
+
+=== Keyboard/joypad ===
+
+80 = Vector *
+82 = Joypad
+83 = Key
+
+The vector is called if a key is pushed, or if any button on the joypad is
+pushed or released.
+
+The joypad byte has bits as follows:
+  bit7 = Right
+  bit6 = Left
+  bit5 = Down
+  bit4 = Up
+  bit3 = Start (or home)
+  bit2 = Select (or left shift)
+  bit1 = B (or left alt)
+  bit0 = A (or left control)
+
+The key is the ASCII code of the key pushed.
+
+
+=== Mouse ===
+
+90 = Vector *
+92 = X *
+94 = Y *
+96 = Buttons
+9A = Scroll X *
+9C = Scroll Y *
+
+The vector is called when the mouse is moved or if any mouse buttons are
+pushed or released.
+
+
+=== Files ===
+
+A2 = Number of bytes transferred *
+A4 = Stat (address to store data) *
+A6 = Delete
+A7 = Append
+A8 = Address of file name *
+AA = Maximum number of bytes to transfer *
+AC = Read (address to store data) *
+AE = Write (address to take data from) *
+
+If the address of a null-terminated file name is written to that port,
+then the device is reset and it remembers the file name (so the memory
+used to store it can be reused afterward).
+
+All other operations need the maximum length in that port, and then
+write the address of the data to the stat/read/write port.
+
+(TODO)
+
+
+=== Date/time ===
+
+C0 = Year *
+C2 = Month (zero-based)
+C3 = Day of month (one-based)
+C4 = Hours
+C5 = Minutes
+C6 = Seconds
+C7 = Day of the week (0=Sunday)
+C8 = Day of the year *
+CA = Daylight saving time
+

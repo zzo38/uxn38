@@ -114,8 +114,8 @@ Device fifteen is the extension device, which is defined as:
   f5
   f6 = transfer length *
   f7
-  f8 = transfer operation
-  f9 = device version
+  f8 = command code / expanded memory pages
+  f9 = device version / status
   fa = device seven UUID address *
   fb
   fc = device thirteen UUID address *
@@ -123,18 +123,23 @@ Device fifteen is the extension device, which is defined as:
   fe = device fourteen UUID address *
   ff
 
-The transfer operation is used for copying data to/from expanded memory.
-Use the bits as following:
+(If the program file is too big to fit into conventional memory, then as
+much as will fit of the rest will be loaded into expanded memory.)
 
-* bit0 = Set to transfer conventional to expanded memory, or clear to
-transfer expanded to conventional memory.
+Reading the command code port will be the number of expanded memory pages
+(from 0 to 16). Writing the command code will execute the command, where
+the high nybble specifies which command to do and the low nybble is the
+parameter of that command. The command codes are:
 
-* bit1 = Selects which page of expanded memory to use.
+* 0 = Copy conventional memory to expanded memory. The parameter is the
+zero-based page number.
 
-Other bits are reserved and must be clear.
+* 1 = Copy expanded memory to conventional memory. The parameter is the
+zero-based page number.
 
-If the program file is too big to fit into conventional memory, then as
-much as will fit of the rest will be loaded into expanded memory.
+* 2 = Clear the screen. If bit0 is set then clear the background layer,
+and if bit1 is set then clear the foreground layer (set both bits to clear
+both layers).
 
 Writing to the UUID address ports will read sixteen bytes at that address
 and then will set the device version field to the version number, which
@@ -143,7 +148,8 @@ implementation, or an even number for a stable implementation. (The memory
 that it points to can be reused afterward with no problem.)
 
 The vector is called after passing command-line arguments, but before any
-other events occur.
+other events occur. If accepting input from stdin, then it will also be
+called after all input from stdin has been read.
 
 (Note: Using this feature will make the program not portable to other
 implementations, and should be avoided if possible. However, it is

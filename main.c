@@ -15,6 +15,9 @@ exit
 #include <time.h>
 #include <unistd.h>
 
+#define EXPANDED_MEMORY 8
+#define MEMSIZE ((EXPANDED_MEMORY+1)*0x10000)
+
 #define GET16(p) (((p)[0]<<8)|(p)[1])
 #define PUT16(p,q) ((p)[0]=(q)>>8,(p)[1]=(q))
 
@@ -120,7 +123,7 @@ static const Uint8 blend[4][16]={
   {2,3,1,2,2,3,1,2,2,3,1,2,2,3,1,2},
 };
 
-static Uint8 mem[0x30000];
+static Uint8 mem[MEMSIZE];
 static Stack ds,rs;
 static Device device[16];
 static Uint16 scr_w,scr_h;
@@ -274,8 +277,8 @@ static void run(Uint16 pc) {
 static void load_rom(void) {
   FILE*fp=fopen(rom_name,"r");
   if(!fp) err(1,"Cannot load program file");
-  memset(mem,0,0x30000);
-  fread(mem+0x0100,1,0x30000-0x0100,fp);
+  memset(mem,0,MEMSIZE);
+  fread(mem+0x0100,1,MEMSIZE-0x0100,fp);
   if(ferror(fp)) err(1,"Cannot load program file");
   fclose(fp);
 }
@@ -341,11 +344,15 @@ static void system_out(Device*dev,Uint8 id) {
   }
 }
 
+static Uint8 extension_in(Device*dev,Uint8 id) {
+  switch(id) {
+    case 8: return EXPANDED_MEMORY;
+    default: return dev->d[id];
+  }
+}
+
 static void extension_out(Device*dev,Uint8 id) {
-  Uint8*p;
-  Uint8*q;
-  Uint16 x,y;
-  Uint16 len;
+  Uint16 x,y,len;
   switch(id) {
     case 8:
       switch(dev->d[8]>>4) {
@@ -353,14 +360,22 @@ static void extension_out(Device*dev,Uint8 id) {
           x=GET16(dev->d+2);
           y=GET16(dev->d+4);
           len=GET16(dev->d+6);
-          if(dev->d[8]&4) len=256;
-          if(x+len>0x10000 || y+len>0x10000) uxnerr(5,x);
-          *(dev->d[8]&1?&p:&q)=mem+x;
-          *(dev->d[8]&1?&q:&p)=mem+y+(dev->d[8]&2?0x20000:0x10000);
-          memcpy(q,p,len);
+          if(x+len>0x10000 || y+len>0x10000 || (dev->d[8]&15)>=EXPANDED_MEMORY) uxnerr(5,x);
+          memcpy(mem+y+((dev->d[8]&15)<<16)+0x10000,mem+x,len);
+          break;
+        case 1:
+          x=GET16(dev->d+2);
+          y=GET16(dev->d+4);
+          len=GET16(dev->d+6);
+          if(x+len>0x10000 || y+len>0x10000 || (dev->d[8]&15)>=EXPANDED_MEMORY) uxnerr(5,x);
+          memcpy(mem+x,mem+y+((dev->d[8]&15)<<16)+0x10000,len);
+          break;
+        case 2:
+          if(!screen) break;
+          if(dev->d[8]&1) memset(bglayer,0,scr_w*scr_h);
+          if(dev->d[8]&2) memset(fglayer,0,scr_w*scr_h);
           break;
       }
-      dev->d[8]=0;
       break;
     case 11: case 13: case 15:
       dev->d[9]=0;
@@ -776,7 +791,7 @@ int main(int argc,char**argv) {
     case 'q': use_console=0; break;
     case 't': timer_rate=strtol(optarg,0,10); break;
     case 'w': default_width=strtol(optarg,0,10); break;
-    case 'x': device[15].out=extension_out; break;
+    case 'x': device[15].in=extension_in; device[15].out=extension_out; break;
     case 'y': allow_write=0; device[10].out=device[11].out=files_out; device[10].in=device[11].in=files_in; break;
     case 'z': zoom=strtol(optarg,0,10); break;
     default: return 1;
@@ -827,6 +842,7 @@ int main(int argc,char**argv) {
       device[1].d[2]=i;
       run(GET16(device[1].d));
     }
+    if(device[15].out==extension_out) run(GET16(device[15].d));
   }
   return 0;
 }

@@ -82,6 +82,10 @@ colours. If the foreground colour is zero then the background is displayed.
 
 The vector is called during each video frame (60 frames per second).
 
+Writing the width and height will change the window size if possible (some
+implementations might not be able to do so), and should clear the screen.
+(If you read back then you can find the actual width/height.)
+
 The auto port works as follows:
   bit7-bit4 = One less than number of sprites to draw
   bit3 = Unused (should be clear)
@@ -102,6 +106,8 @@ are as follows:
   bit4 = Horizontal flip
   bit3-bit0 = Colour
 
+(TODO: explain sprites better)
+
 
 === Audio ===
 
@@ -110,7 +116,8 @@ are as follows:
 
 === MIDI ===
 
-(TODO)
+This does not seem to be fully defined at this time (and the existing
+design is not very good in my opinion).
 
 
 === Keyboard/joypad ===
@@ -147,6 +154,8 @@ The key is the ASCII code of the key pushed.
 The vector is called when the mouse is moved or if any mouse buttons are
 pushed or released.
 
+The scroll amounts are signed 16-bit numbers.
+
 
 === Files ===
 
@@ -164,7 +173,23 @@ then the device is reset and it remembers the file name (so the memory
 used to store it can be reused afterward).
 
 All other operations need the maximum length in that port, and then
-write the address of the data to the stat/read/write port.
+write the address of the data to the stat/read/write port. The 0xA2 port
+(or 0xB2 for the second file) will then have the number of bytes which
+have been successfully transferred, or zero if it is not successful.
+
+If there are multiple reads without other operations (including setting
+the file name) in betwee, or multiple writes without other operations
+(including setting the file name) in betwee, then it will continue from
+where it left off in the file; otherwise it starts from the beginning.
+
+For the first write, it will truncate the file if the append byte is
+zero, or will start writing at the end of the file if the append byte
+is nonzero.
+
+Reading from either of the read ports will read a single byte from the
+file (in this case, the address and max number of bytes is ignored). In
+this case, you should write to both 0xAB and 0xAC if you want to do a
+long read since if you write to only 0xAC then the address is undefined.
 
 (TODO)
 
@@ -180,4 +205,7 @@ C6 = Seconds
 C7 = Day of the week (0=Sunday)
 C8 = Day of the year *
 CA = Daylight saving time
+
+Some programs use this device to seed a random number generator, and
+will not work correctly if these values are all zero.
 

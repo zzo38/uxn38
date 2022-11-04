@@ -41,6 +41,13 @@ typedef struct {
   Uint8 mode;
 } UxnFile;
 
+typedef struct {
+  Uint32 envtime,phase,freq;
+  Uint32 length,end,pos;
+  Uint32 env[4];
+  Uint8 vol[2];
+} UxnAudio;
+
 static SDL_Color colors[64]={
   // 0
   {0xFF,0xFF,0xFF,0},
@@ -123,6 +130,11 @@ static const Uint8 blend[4][16]={
   {2,3,1,2,2,3,1,2,2,3,1,2,2,3,1,2},
 };
 
+static const Uint32 notes[12]={
+  0x20000000,0x21e71f26,0x23eb3588,0x260dfc14,0x285145f3,0x2ab70212,
+  0x2d413ccd,0x2ff221af,0x32cbfd4a,0x35d13f33,0x39047c0f,0x3c686fce,
+};
+
 static Uint8 mem[MEMSIZE];
 static Stack ds,rs;
 static Device device[16];
@@ -154,7 +166,11 @@ static Uint8 layers;
 static Uint8 palet=7;
 static Uint8 bicycle=0;
 
+static Sint32*audio_option;
+static SDL_AudioSpec audiospec;
+
 static void debug(int i) {
+  int j;
   if(i) fprintf(stderr,"Debug(%02X)\n",i);
   fprintf(stderr,"ds:");
   for(i=0;i<ds.p;i++) fprintf(stderr," %02X",ds.d[i]);
@@ -162,6 +178,13 @@ static void debug(int i) {
   fprintf(stderr,"rs:");
   for(i=0;i<rs.p;i++) fprintf(stderr," %02X",rs.d[i]);
   fputc('\n',stderr);
+  fprintf(stderr,"   0. 1. 2. 3. 4. 5. 6. 7. 8. 9. A. B. C. D. E. F.\n");
+  for(i=0;i<16;i++) {
+    fprintf(stderr,"%1X:",i);
+    for(j=0;j<16;j++) fprintf(stderr," %02X",device[i].d[j]);
+    if(device[i].aux) fprintf(stderr," *");
+    fputc('\n',stderr);
+  }
 }
 
 static void uxnerr(int n,int pc) {
@@ -628,6 +651,35 @@ static void screen_out(Device*dev,Uint8 id) {
   }
 }
 
+static void audio_out(Device*dev,Uint8 id) {
+  UxnAudio*a;
+  Uint32 s,n;
+  if(id!=15) return;
+  SDL_LockAudio();
+  a=dev->aux;
+  a->env[0]=(dev->d[8]>>4)*audio_option['e'-'a'];
+  a->env[1]=(dev->d[8]&15)*audio_option['e'-'a'];
+  a->env[2]=(dev->d[9]>>4)*audio_option['e'-'a'];
+  a->env[3]=(dev->d[9]&15)*audio_option['e'-'a'];
+  a->length=n=GET16(dev->d+10);
+  a->pos=s=GET16(dev->d+12);
+  a->end=s+n;
+  if(dev->d[15]&0x80) a->length=0;
+  a->envtime=0;
+  a->phase=0;
+  s=(dev->d[15]&0x7F)+audio_option['n'-'a'];
+  s=notes[s%12]>>(10-s/12);
+  if(n<256) s=(n*(unsigned long long)s)>>8;
+  a->freq=s;
+  if(audiospec.channels==1) {
+    a->vol[0]=a->vol[1]=((dev->d[14]&15)+(dev->d[14]>>4))/2;
+  } else {
+    a->vol[0]=dev->d[14]>>4;
+    a->vol[1]=dev->d[14]&15;
+  }
+  SDL_UnlockAudio();
+}
+
 static Uint32 timer_callback(Uint32 interval) {
   if(!timer_expired) {
     SDL_Event e;
@@ -637,6 +689,54 @@ static Uint32 timer_callback(Uint32 interval) {
     timer_expired=1;
   }
   return interval;
+}
+
+static Uint32 envelope(const UxnAudio*a) {
+  // Returns a number from 0 to 64.
+  Uint32 t=a->envtime;
+  if(!(a->env[0]|a->env[1]|a->env[2]|a->env[3])) return 64;
+  if(t<a->env[0]) return ((64*t)/a->env[0])?:1;
+  t-=a->env[0];
+  if(t<a->env[1]) return 64-((32*t)/a->env[1]);
+  t-=a->env[1];
+  if(t<a->env[2]) return 32;
+  t-=a->env[2];
+  if(t<a->env[3]) return 32-((32*t)/a->env[3]);
+  return 0;
+}
+
+static void audio_callback(void*userdata,Uint8*stream,int len) {
+  Uint8 c=audiospec.channels;
+  Uint32 vol=audio_option['m'-'a']?0:audio_option['v'-'a'];
+  Sint16*buf=(void*)stream;
+  UxnAudio*a;
+  int d,n;
+  Uint32 o0,o1,e;
+  len>>=1;
+  for(n=0;n<len;n+=c) {
+    o0=o1=0;
+    for(d=3;d<7;d++) {
+      a=device[d].aux;
+      if(a->pos>=a->end && !a->length) continue;
+      e=envelope(a);
+      if(!e) {
+        a->pos=a->length=a->end=0;
+        continue;
+      }
+      a->envtime++;
+      e*=(Sint8)(mem[a->pos]^0x80);
+      a->phase+=a->freq;
+      if(a->phase>=0x1000000) {
+        a->pos+=a->phase>>24;
+        a->phase&=0xFFFFFF;
+        while(a->pos>=a->end && a->length) a->pos-=a->length;
+      }
+      o0+=e*a->vol[0];
+      o1+=e*a->vol[1];
+    }
+    buf[n]=(o0*vol)>>12;
+    if(c==2) buf[n+1]=(o1*vol)>>12;
+  }
 }
 
 static void redraw(void) {
@@ -694,6 +794,7 @@ static int run_screen(void) {
           case SDLK_LEFT: i=0x40; break;
           case SDLK_RIGHT: i=0x80; break;
           case SDLK_F1: run(GET16(device[2].d)); timer_expired=0; break;
+          case SDLK_F2: if(audio_option) audio_option['m'-'a']^=1; break;
           case SDLK_F3: use_mouse^=1; set_cursor(); break;
           case SDLK_F4: layers=(layers+1)%3; redraw(); break;
           case SDLK_F5: redraw(); if(SDL_GetModState()&KMOD_RSHIFT) debug(-1); break;
@@ -763,6 +864,31 @@ static void set_datetime(char*s) {
   }
 }
 
+static void set_audio(char*s) {
+  int i;
+  audio_option=calloc(sizeof(Sint32),26);
+  if(!audio_option) err(1,"Allocation failed");
+  audio_option['b'-'a']=2048;
+  audio_option['c'-'a']=2;
+  audio_option['r'-'a']=44100;
+  audio_option['v'-'a']=273;
+  while(*s && *s!='.') {
+    if(*s<'a' && *s>'z') errx(1,"Invalid audio option");
+    audio_option[*s-'a']=strtol(s+1,&s,10);
+  }
+  audiospec.freq=audio_option['f'-'a'];
+  audiospec.channels=audio_option['c'-'a'];
+  audiospec.samples=audio_option['b'-'a'];
+  audiospec.format=AUDIO_S16SYS;
+  audiospec.callback=audio_callback;
+  for(i=3;i<7;i++) {
+    device[i].aux=calloc(1,sizeof(UxnAudio));
+    if(!device[i].aux) err(1,"Allocation failed");
+    device[i].out=audio_out;
+  }
+  if(!audio_option['e'-'a']) audio_option['e'-'a']=audio_option['r'-'a']/15;
+}
+
 int main(int argc,char**argv) {
   int i,j;
   for(i=0;i<16;i++) {
@@ -774,7 +900,7 @@ int main(int argc,char**argv) {
   device[10].aux=&uxnfile0;
   device[11].aux=&uxnfile1;
   device[12].in=datetime_in;
-  while((i=getopt(argc,argv,"+ABDFNQT:YZdh:inp:qt:w:xyz:"))>0) switch(i) {
+  while((i=getopt(argc,argv,"+ABDFNQT:YZa:dh:inp:qt:w:xyz:"))>0) switch(i) {
     case 'B': bicycle=1; device[0].in=default_in; break;
     case 'D': scrflags|=SDL_DOUBLEBUF; break;
     case 'F': scrflags|=SDL_FULLSCREEN; break;
@@ -783,6 +909,7 @@ int main(int argc,char**argv) {
     case 'T': device[12].in=default_in; set_datetime(optarg); break;
     case 'Y': allow_write=1; device[10].out=device[11].out=files_out; device[10].in=device[11].in=files_in; break;
     case 'Z': use_utc=1; break;
+    case 'a': set_audio(optarg); break;
     case 'd': use_debug=1; break;
     case 'h': default_height=strtol(optarg,0,10); break;
     case 'i': hide_cursor=1; break;
@@ -802,7 +929,7 @@ int main(int argc,char**argv) {
   if(use_screen) {
     if(zoom<1) errx(1,"Zoom out of range");
     if(default_height<1 || default_width<1) errx(1,"Screen size out of range");
-    if(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER)) errx(1,"Cannot initialize SDL: %s",SDL_GetError());
+    if(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER|(audio_option?SDL_INIT_AUDIO:0))) errx(1,"Cannot initialize SDL: %s",SDL_GetError());
     atexit(SDL_Quit);
     set_screen_mode(default_width,default_height);
     SDL_EnableUNICODE(1);
@@ -810,6 +937,10 @@ int main(int argc,char**argv) {
     PUT16(device[2].d+2,default_width);
     PUT16(device[2].d+4,default_height);
     if(timer_rate) SDL_SetTimer(timer_rate,timer_callback);
+    if(audio_option) {
+      if(SDL_OpenAudio(&audiospec,0)) errx(1,"Cannot initialize SDL audio: %s",SDL_GetError());
+      SDL_PauseAudio(0);
+    }
     SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY,SDL_DEFAULT_REPEAT_INTERVAL);
     SDL_WM_SetCaption(rom_name,rom_name);
     set_cursor();

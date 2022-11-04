@@ -30,6 +30,9 @@
 -Z
   Use UTC instead of local time. (Has no effect in combination with -T.)
 
+-a #
+  Set audio. See the below section about audio for details.
+
 -d
   Enable some debugging features. (Some will work even without this.)
 
@@ -72,6 +75,9 @@
 F1
   Advance one frame, even if paused.
 
+F2
+  Mute/unmute audio.
+
 F3
   Toggle the mouse mode. When the mouse mode is disabled, the mouse device
   does not work; the mouse vector is not called and the mouse coordinates
@@ -101,6 +107,31 @@ Some programs use shortcut keys with control and letters. This does not
 work in this program; therefore, END is an alias for the joypad A button
 (the left control key also corresponds to the joypad A button, but if used
 together with letter keys, will enter control characters instead).
+
+
+=== Audio ===
+
+The audio setting consists of a sequence of letters and numbers; each item
+is one letter "a" to "z" followed by a number of any number of digits. (It
+can optionally have - at first for negative numbers, although most options
+cannot use negative numbers.)
+
+b = Buffer size.
+
+c = Number of output channels, which can be 1 (mono) or 2 (stereo).
+
+e = Envelope speed. If not specified, then it is fifteenths of seconds.
+
+m = If set to 1, then audio is initially muted.
+
+n = Transpose amount.
+
+r = Sample rate in hertz. Normally, this setting is also the sample rate
+for middle C.
+
+v = Output volume from 0 to 273.
+
+(Currently there is not the setting of interpolation, filter, etc.)
 
 
 === Extension device ===

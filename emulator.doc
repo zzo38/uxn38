@@ -31,7 +31,9 @@
   Use UTC instead of local time. (Has no effect in combination with -T.)
 
 -a #
-  Set audio. See the below section about audio for details.
+  Set audio. See the below section about audio for details. If both -a and
+  -n switches are used, then audio data is written to stdout (it is signed
+  16-bits big-endian).
 
 -d
   Enable some debugging features. (Some will work even without this.)
@@ -122,14 +124,16 @@ c = Number of output channels, which can be 1 (mono) or 2 (stereo).
 
 e = Envelope speed. If not specified, then it is fifteenths of seconds.
 
-m = If set to 1, then audio is initially muted.
+m = If set to 1, then audio is initially muted. (This option is ignored if
+the -n switch is used.)
 
 n = Transpose amount.
 
 r = Sample rate in hertz. Normally, this setting is also the sample rate
 for middle C.
 
-v = Output volume from 0 to 273.
+v = Output volume from 0 to 273. If not all of the four VM audio channels
+are being used, then this number may be set higher than 273.
 
 (Currently there is not the setting of interpolation, filter, etc.)
 

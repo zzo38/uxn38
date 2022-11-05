@@ -579,6 +579,21 @@ static Uint8 datetime_in(Device*dev,Uint8 id) {
   }
 }
 
+static void set_cursor(void) {
+  if(hide_cursor) SDL_ShowCursor(paused || !use_mouse);
+}
+
+static Uint32 timer_callback(Uint32 interval) {
+  if(!timer_expired) {
+    SDL_Event e;
+    timer_expired=1;
+    e.type=SDL_USEREVENT;
+    SDL_PushEvent(&e);
+    timer_expired=1;
+  }
+  return interval;
+}
+
 static void set_screen_mode(int w,int h) {
   picture_changed=size_changed=0;
   free(bglayer);
@@ -589,6 +604,17 @@ static void set_screen_mode(int w,int h) {
   scr_h=h;
   screen=SDL_SetVideoMode(w*zoom,h*zoom,8,scrflags);
   if(!screen) errx(1,"Cannot set screen mode: %s",SDL_GetError());
+  if(!bglayer) {
+    if(timer_rate) SDL_SetTimer(timer_rate,timer_callback);
+    if(audio_option) {
+      if(SDL_OpenAudio(&audiospec,0)) errx(1,"Cannot initialize SDL audio: %s",SDL_GetError());
+      SDL_PauseAudio(0);
+    }
+    SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY,SDL_DEFAULT_REPEAT_INTERVAL);
+    SDL_WM_SetCaption(rom_name,rom_name);
+    set_cursor();
+    SDL_EnableUNICODE(1);
+  }
   SDL_SetColors(screen,colors+palet*8,0,8);
   bglayer=calloc(w*h,2);
   if(!bglayer) err(1,"Memory allocation error");
@@ -680,17 +706,6 @@ static void audio_out(Device*dev,Uint8 id) {
   SDL_UnlockAudio();
 }
 
-static Uint32 timer_callback(Uint32 interval) {
-  if(!timer_expired) {
-    SDL_Event e;
-    timer_expired=1;
-    e.type=SDL_USEREVENT;
-    SDL_PushEvent(&e);
-    timer_expired=1;
-  }
-  return interval;
-}
-
 static Uint32 envelope(const UxnAudio*a) {
   // Returns a number from 0 to 64.
   Uint32 t=a->envtime;
@@ -768,10 +783,6 @@ static void redraw(void) {
   }
   SDL_UnlockSurface(screen);
   SDL_Flip(screen);
-}
-
-static void set_cursor(void) {
-  if(hide_cursor) SDL_ShowCursor(paused || !use_mouse);
 }
 
 static int run_screen(void) {
@@ -931,24 +942,18 @@ int main(int argc,char**argv) {
     if(default_height<1 || default_width<1) errx(1,"Screen size out of range");
     if(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER|(audio_option?SDL_INIT_AUDIO:0))) errx(1,"Cannot initialize SDL: %s",SDL_GetError());
     atexit(SDL_Quit);
-    set_screen_mode(default_width,default_height);
-    SDL_EnableUNICODE(1);
     device[2].out=screen_out;
-    PUT16(device[2].d+2,default_width);
-    PUT16(device[2].d+4,default_height);
-    if(timer_rate) SDL_SetTimer(timer_rate,timer_callback);
-    if(audio_option) {
-      if(SDL_OpenAudio(&audiospec,0)) errx(1,"Cannot initialize SDL audio: %s",SDL_GetError());
-      SDL_PauseAudio(0);
-    }
-    SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY,SDL_DEFAULT_REPEAT_INTERVAL);
-    SDL_WM_SetCaption(rom_name,rom_name);
-    set_cursor();
+    scr_w=default_width;
+    scr_h=default_height;
+    PUT16(device[2].d+2,scr_w);
+    PUT16(device[2].d+4,scr_h);
+    size_changed=1;
   }
   if(use_console) device[1].out=console_out;
   if(device[12].d[15]) device[12].d[15]=0; else device[12].in=datetime_in;
   if(optind+1<argc) strncpy(uxnfile0.name,argv[optind+1],4095);
   if(optind+2<argc) strncpy(uxnfile1.name,argv[optind+2],4095);
+  restart:
   run(0x0100);
   if(device[1].d[0] || device[1].d[1]) for(i=optind+1;i<argc;i++) {
     for(j=0;argv[i][j];j++) {
@@ -960,13 +965,14 @@ int main(int argc,char**argv) {
   }
   if(device[15].out==extension_out) run(GET16(device[15].d));
   if(use_screen) {
+    if(size_changed) set_screen_mode(scr_w,scr_h);
     while(run_screen()) {
       for(i=0;i<15;i++) for(j=0;j<16;j++) device[i].d[j]=0;
       load_rom();
-      PUT16(device[2].d+2,default_width);
-      PUT16(device[2].d+4,default_height);
-      set_screen_mode(default_width,default_height);
-      run(0x0100);
+      // PUT16(device[2].d+2,default_width);
+      // PUT16(device[2].d+4,default_height);
+      // set_screen_mode(default_width,default_height);
+      goto restart;
     }
   } else {
     while((device[1].d[0] || device[1].d[1]) && ((i=getchar())>=0)) {

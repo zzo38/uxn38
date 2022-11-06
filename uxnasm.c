@@ -412,6 +412,7 @@ parse(char *w, FILE *f)
 		  case '@':
 		    if(!ssptr) return error("Stack underflow",w);
 		    i=p.ptr;
+		    p.ptr=sstack[--ssptr];
 		    if(!makelabel(w+2)) return error("Invalid label",w);
 		    p.ptr=i;
 		    break;

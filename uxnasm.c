@@ -9,6 +9,11 @@ copyright notice and this permission notice appear in all copies.
 
 THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
 WITH REGARD TO THIS SOFTWARE.
+
+[This file has been modified from the original that the above copyright
+notice applies to. The same license conditions apply to the modified
+version, although the person who modified it is not the person who is
+named in the above copyright notice.]
 */
 
 #define TRIM 0x0100
@@ -43,7 +48,10 @@ typedef struct {
 	char scope[0x40];
 } Program;
 
-Program p;
+static Program p;
+static char line_comment;
+static int ssptr;
+static Uint16 sstack[256];
 
 /* clang-format off */
 
@@ -142,7 +150,7 @@ makemacro(char *name, FILE *f)
 	while(fscanf(f, "%63s", word) == 1) {
 		if(word[0] == '{') continue;
 		if(word[0] == '}') break;
-		if(word[0] == '%')
+		if(word[0] == '%' || line_comment)
 			return error("Macro error", name);
 		if(m->len >= 0x40)
 			return error("Macro size exceeded", name);
@@ -237,13 +245,61 @@ doinclude(const char *filename)
 {
 	FILE *f;
 	char w[0x40];
+	int c;
 	if(!(f = fopen(filename, "r")))
 		return error("Include missing", filename);
-	while(fscanf(f, "%63s", w) == 1)
+	while(fscanf(f, "%63s", w) == 1) {
 		if(!parse(w, f))
 			return error("Unknown token", w);
+		if(line_comment) {
+		  while((c=fgetc(f))>0 && c!='\n');
+		  line_comment=0;
+		}
+	}
 	fclose(f);
+	line_comment=0;
 	return 1;
+}
+
+static int doinclude_binary(const char*filename) {
+  FILE*f;
+  int c;
+  if(!(f = fopen(filename, "r"))) return error("Include missing", filename);
+  while((c=fgetc(f))!=EOF) writebyte(c);
+  fclose(f);
+  return 1;
+}
+
+static int special_calc(const char*w) {
+  const char*loop=w;
+  Uint16 a,b;
+  while(*w) switch(*w++) {
+    case '_': loop=w; break;
+    case '0' ... '9': if(ssptr>255) return 0; sstack[ssptr++]=w[-1]-'0'; break;
+    case '!': if(ssptr<1) return 0; p.ptr=sstack[--ssptr]; break;
+    case '@': if(ssptr>255) return 0; sstack[ssptr++]=p.ptr; break;
+    case '#': if(ssptr<1) return 0; p.length=sstack[--ssptr]; break;
+    case '$': if(ssptr>255) return 0; sstack[ssptr++]=p.length; break;
+    case '+': if(ssptr<2) return 0; b=sstack[--ssptr]; a=sstack[--ssptr]; sstack[ssptr++]=a+b; break;
+    case '-': if(ssptr<2) return 0; b=sstack[--ssptr]; a=sstack[--ssptr]; sstack[ssptr++]=a-b; break;
+    case '*': if(ssptr<2) return 0; b=sstack[--ssptr]; a=sstack[--ssptr]; sstack[ssptr++]=a*b; break;
+    case '/': if(ssptr<2) return 0; b=sstack[--ssptr]; a=sstack[--ssptr]; if(!b) return 0; sstack[ssptr++]=a/b; break;
+    case '%': if(ssptr<2) return 0; b=sstack[--ssptr]; a=sstack[--ssptr]; if(!b) return 0; sstack[ssptr++]=a%b; break;
+    case '&': if(ssptr<2) return 0; b=sstack[--ssptr]; a=sstack[--ssptr]; sstack[ssptr++]=a&b; break;
+    case '|': if(ssptr<2) return 0; b=sstack[--ssptr]; a=sstack[--ssptr]; sstack[ssptr++]=a|b; break;
+    case '^': if(ssptr<2) return 0; b=sstack[--ssptr]; a=sstack[--ssptr]; sstack[ssptr++]=a^b; break;
+    case ':': if(ssptr<1 || ssptr>255) return 0; a=sstack[ssptr-1]; sstack[ssptr++]=a; break;
+    case ',': if(ssptr<2) return 0; b=sstack[--ssptr]; a=sstack[--ssptr]; sstack[ssptr++]=b; sstack[ssptr++]=a; break;
+    case '.': if(ssptr<1) return 0; --ssptr; break;
+    case 'g': if(ssptr<1) return 0; a=sstack[--ssptr]; sstack[ssptr++]=p.data[a]; break;
+    case 'G': if(ssptr<1) return 0; a=sstack[--ssptr]; if(a==0xFFFF) return 0; sstack[ssptr++]=(p.data[a]<<8)|p.data[a+1]; break;
+    case 'p': if(ssptr<2) return 0; a=sstack[--ssptr]; b=sstack[--ssptr]; p.data[a]=b; break;
+    case 'P': if(ssptr<2) return 0; a=sstack[--ssptr]; b=sstack[--ssptr]; if(a==0xFFFF) return 0; p.data[a]=b>>8; p.data[a+1]=b&255; break;
+    case 'w': if(ssptr<1) return 0; a=sstack[--ssptr]; writebyte(a); break;
+    case 'W': if(ssptr<1) return 0; a=sstack[--ssptr]; writeshort(a,0); break;
+    default: return 0;
+  }
+  return 1;
 }
 
 static int
@@ -252,6 +308,7 @@ parse(char *w, FILE *f)
 	int i;
 	char word[0x40], subw[0x40], c;
 	Macro *m;
+	Label*l;
 	if(slen(w) >= 63)
 		return error("Invalid token", w);
 	switch(w[0]) {
@@ -324,10 +381,34 @@ parse(char *w, FILE *f)
 		while((c = w[++i]))
 			if(!writebyte(c)) return 0;
 		break;
+	case '\\': /* specials */
+		switch(w[1]) {
+		  case '\\': line_comment=1; break;
+		  case '~': if(!doinclude_binary(w+2)) return error("Invalid include",w); break;
+		  case ':':
+		    if(!(l=findlabel(w+2))) return error("Invalid reference",w);
+		    if(ssptr==256) return error("Stack overflow",w);
+		    sstack[ssptr++]=l->addr;
+		    break;
+		  case '0' ... '9': case 'a' ... 'f':
+		    if(!sihx(w+1)) return error("Invalid hex literal",w);
+		    if(ssptr==256) return error("Stack overflow",w);
+		    sstack[ssptr++]=shex(w+1);
+		    break;
+		  case '@':
+		    if(!ssptr) return error("Stack underflow",w);
+		    i=p.ptr;
+		    if(!makelabel(w+2)) return error("Invalid label",w);
+		    p.ptr=i;
+		    break;
+		  case '_': if(!special_calc(w+2)) return error("Special calculation error",w); break;
+		  default: return error("Invalid special",w);
+		}
+		break;
 	case '[':
 	case ']':
 		if(slen(w) == 1) break; /* else fallthrough */
-	default:
+	default: defa:
 		/* opcode */
 		if(findopcode(w) || scmp(w, "BRK", 4)) {
 			if(!writeopcode(w)) return 0;
@@ -345,6 +426,7 @@ parse(char *w, FILE *f)
 			for(i = 0; i < m->len; i++)
 				if(!parse(m->items[i], f))
 					return 0;
+			line_comment=0;
 			return 1;
 		} else
 			return error("Unknown token", w);
@@ -399,10 +481,16 @@ static int
 assemble(FILE *f)
 {
 	char w[0x40];
+	int c;
 	scpy("on-reset", p.scope, 0x40);
-	while(fscanf(f, "%63s", w) == 1)
+	while(fscanf(f, "%63s", w) == 1) {
 		if(!parse(w, f))
 			return error("Unknown token", w);
+		if(line_comment) {
+		  while((c=fgetc(f))>0 && c!='\n');
+		  line_comment=0;
+		}
+	}
 	return resolve();
 }
 
@@ -418,10 +506,15 @@ review(char *filename)
 	fprintf(stderr,
 		"Assembled %s in %d bytes(%.2f%% used), %d labels, %d macros.\n",
 		filename,
-		p.length - TRIM,
-		(p.length - TRIM) / 652.80,
+		p.length<TRIM?0:p.length-TRIM,
+		p.length<TRIM?0:((p.length - TRIM) / 652.80),
 		p.llen,
 		p.mlen);
+}
+
+static void send_name_output(FILE*dst) {
+  int i;
+  for(i=0;i<p.llen;i++) fprintf(dst,"|%04x @%s\n",p.labels[i].addr,p.labels[i].name);
 }
 
 int
@@ -429,16 +522,22 @@ main(int argc, char *argv[])
 {
 	FILE *src, *dst;
 	if(argc < 3)
-		return !error("usage", "input.tal output.rom");
+		return !error("usage", "input.tal output.rom [output.nam]");
 	if(!(src = fopen(argv[1], "r")))
 		return !error("Invalid input", argv[1]);
 	if(!assemble(src))
 		return !error("Assembly", "Failed to assemble rom.");
 	if(!(dst = fopen(argv[2], "wb")))
-		return !error("Invalid Output", argv[2]);
+		return !error("Invalid output", argv[2]);
 	if(p.length <= TRIM)
-		return !error("Assembly", "Output rom is empty.");
-	fwrite(p.data + TRIM, p.length - TRIM, 1, dst);
+		error("Assembly", "Output rom is empty.");
+	else
+		fwrite(p.data + TRIM, p.length - TRIM, 1, dst);
 	review(argv[2]);
+	if(argc>3 && argv[3][0]) {
+	  fclose(dst);
+	  if(!(dst=fopen(argv[3],"w"))) return !error("Invalid name output",argv[3]);
+	  send_name_output(dst);
+	}
 	return 0;
 }

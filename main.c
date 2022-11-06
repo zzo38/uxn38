@@ -1014,9 +1014,6 @@ int main(int argc,char**argv) {
     while(run_screen()) {
       for(i=0;i<15;i++) for(j=0;j<16;j++) device[i].d[j]=0;
       load_rom();
-      // PUT16(device[2].d+2,default_width);
-      // PUT16(device[2].d+4,default_height);
-      // set_screen_mode(default_width,default_height);
       goto restart;
     }
   } else if(audio_option) {

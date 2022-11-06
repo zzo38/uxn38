@@ -1,0 +1,170 @@
+This document describes the Uxn assembler, including the nonstandard
+extensions of the implementation included in this repository.
+
+Specify two or three command-line arguments:
+
+* Input file name (you can specify /dev/stdin to read from stdin).
+
+* Output file name (you can specify /dev/stdout to write to stdout, or you
+can specify /dev/null to discard the output).
+
+* Name output file name (you can specify /dev/stdout to write to stdout).
+This is optional, and if specified, then it will write a list of labels
+(including unused labels too) and their addresses to this file. (This is a
+nonstandard feature.)
+
+
+=== Tokens ===
+
+A token consists of a sequence of one or more non-whitespace characters
+(you can have whitespace characters to separate them). The maximum length
+of each token is sixty-three characters.
+
+All numbers must be lowercase hexadecimal, and normally must be either two
+or four hex digits.
+
+The following standard tokens are available:
+
+ ( which begins a block comment; all further tokens up to ) are ignored.
+ Comments can be nested.
+
+ [ or ] has no meaning. Anything inside this block is still assembled as
+ though the [ and ] commands are not present.
+
+ ~ and a file name will include that file as a source file.
+
+ % and a macro name will define a macro; you will need tokens { and }
+ around the definition of the macro.
+
+ The name of a previously defined macro without % in front will call that
+ macro, as though its definition is substituted in its place.
+
+ | and a number will set the current address to that number. Any address
+ is possible, but you cannot assemble anything in the zero page nor can
+ anything be assembled out of order, although you can skip any space.
+
+ $ and a number will advance the address by that number. (The padding will
+ be all zeros if not filled in.)
+
+ @ and a name will make a label with that name.
+
+ & and a name will make a label whose name is the same as the most recent
+ @ command and then / and then the name specified by the & command.
+
+ # and a number will make a LIT or LIT2 opcode with the specified number
+ (the number of hex digits determines which opcode).
+
+ A number without # is similar but the opcode is omitted, so raw data is
+ emitted instead.
+
+ . and a name will make a LIT opcode whose value is the low 8-bits of the
+ address of the specified name.
+
+ , and a name will make a LIT opcode whose value is a signed 8-bit value
+ which is a relative offset of the address of the specified name; this
+ should be used immediately preceding a JMP, JSR, or JCN instruction.
+
+ ; and a name will make a LIT2 opcode whose value is the address of the
+ specified name.
+
+ : and a name will write the 16-bit address of the specified name directly,
+ without any opcode.
+
+ " and any characters (other than whitespaces) will emit that sequence of
+ characters without any opcodes or delimiters. (If you need spaces, then
+ you must use separate tokens such as 20 for spaces.)
+
+ An instruction opcode consists of three uppercase letters, optionally
+ followed by any combination of instruction flags which can be "2" for
+ 16-bit operands, "r" to work with the other stack, and/or "k" to keep
+ the input operands in the stack.
+
+The following nonstandard tokens are available:
+
+ \\ begins a line comment, which ends at the next line break.
+
+ \~ and a file name will include the contents of the binary file.
+
+ \ and a number pushes the number to the special stack (which is a stack
+ which exists only at compile-time).
+
+ \: and a name will push the address of the name to the special stack.
+
+ \@ and a name will pop an address from the special stack and define a
+ label whose address is the address which has been popped in this way.
+
+ \_ and further text is a special calculation; see the below section
+ about special calculations. These are executed immediately at compile
+ time, before the compiled program is written to the output file.
+
+For the . ,  : ; commands, the name can optionally start with & to mean
+that it is interpreted the same as for a & command.
+
+
+=== Special calculations ===
+
+Each instruction is a single character.
+
+Numbers 0 to 9 push that number to the special stack.
+
+_  ( -- )  Set loop point (currently not used for anything).
+
+!  ( x -- )  Set current address.
+
+@  ( -- x )  Get current address.
+
+#  ( x -- )  Set current length. (This length includes the zero page,
+even though the zero page is not written to the output file.)
+
+$  ( -- x )  Get current length.
+
++  ( x y -- z )  Addition x+y.
+
+-  ( x y -- z )  Subtraction x-y.
+
+*  ( x y -- z )  Multiplication x*y.
+
+/  ( x y -- z )  Division x/y.
+
+%  ( x y -- z )  Modulo x&y.
+
+&  ( x y -- z )  Bitwise AND.
+
+|  ( x y -- z )  Bitwise OR.
+
+^  ( x y -- z )  Bitwise XOR.
+
+:  ( x -- x x )  Duplicate.
+
+,  ( x y -- y x )  Swap.
+
+.  ( x -- )  Discard.
+
+g  ( address -- value )  Read 8-bits from memory.
+
+G  ( address -- value )  Read 16-bits from memory.
+
+p  ( value address -- )  Write 8-bits to memory. You can write anywhere
+including the zero page and can also overwrite memory that has already
+been written. Anything written to the zero page can be read back by other
+special calculations but will not be written to the output file; anything
+written outside of the zero page is written to the output file too.
+
+P  ( value address -- )  Write 16-bits to memory.
+
+w  ( value -- )  Write 8-bits at the current address and advance. You
+cannot write in the zero page or overwrite what is already written.
+
+W  ( value -- )  Write 16-bits at the current address and advance. You
+cannot write in the zero page or overwrite what is already written.
+
+
+=== Name output format ===
+
+The name output format has each record on a line by itself, and each
+record will be like:   |xxxx @yyyy
+
+xxxx is four lowercase hex digits being the address of that label.
+
+yyyy is the name of that label.
+

@@ -71,7 +71,7 @@ but if 8-bits then it is a signed relative address.
   Unconditional jump.
 0D JCN ( cond8 addr! -- )
   Jump if the condition is nonzero.
-0E JSR ( addr -- <old_addr> )
+0E JSR ( addr! -- <old_addr> )
   Unconditional jump, but the address of the next instruction if it
   would not jump is saved in the other stack.
 0F STH ( a -- <a> )

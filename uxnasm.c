@@ -16,6 +16,11 @@ version, although the person who modified it is not the person who is
 named in the above copyright notice.]
 */
 
+#define MAXLABELS 0x400
+#define MAXMACROS 0x100
+#define MAXREFS 0x800
+#define MAXITEMS 0x40
+
 #define TRIM 0x0100
 #define LENGTH 0x10000
 
@@ -24,7 +29,7 @@ typedef signed char Sint8;
 typedef unsigned short Uint16;
 
 typedef struct {
-	char name[0x40], items[0x40][0x40];
+	char name[0x40], items[MAXITEMS][0x40];
 	Uint8 len;
 } Macro;
 
@@ -42,9 +47,9 @@ typedef struct {
 	Uint8 data[LENGTH];
 	unsigned int ptr, length;
 	Uint16 llen, mlen, rlen;
-	Label labels[0x400];
-	Macro macros[0x100];
-	Reference refs[0x800];
+	Label labels[MAXLABELS];
+	Macro macros[MAXMACROS];
+	Reference refs[MAXREFS];
 	char scope[0x40];
 } Program;
 
@@ -143,7 +148,7 @@ makemacro(char *name, FILE *f)
 		return error("Macro name is hex number", name);
 	if(findopcode(name) || scmp(name, "BRK", 4) || !slen(name))
 		return error("Macro name is invalid", name);
-	if(p.mlen == 0x100)
+	if(p.mlen == MAXMACROS)
 		return error("Macros limit exceeded", name);
 	m = &p.macros[p.mlen++];
 	scpy(name, m->name, 0x40);
@@ -152,7 +157,7 @@ makemacro(char *name, FILE *f)
 		if(word[0] == '}') break;
 		if(word[0] == '%' || line_comment)
 			return error("Macro error", name);
-		if(m->len >= 0x40)
+		if(m->len >= MAXITEMS)
 			return error("Macro size exceeded", name);
 		scpy(word, m->items[m->len++], 0x40);
 	}
@@ -169,7 +174,7 @@ makelabel(char *name)
 		return error("Label name is hex number", name);
 	if(findopcode(name) || scmp(name, "BRK", 4) || !slen(name))
 		return error("Label name is invalid", name);
-	if(p.llen == 0x400)
+	if(p.llen == MAXLABELS)
 		return error("Labels limit exceeded", name);
 	l = &p.labels[p.llen++];
 	l->addr = p.ptr;
@@ -183,7 +188,7 @@ makereference(char *scope, char *label, Uint16 addr)
 {
 	char subw[0x40], parent[0x40];
 	Reference *r;
-	if(p.rlen == 0x800)
+	if(p.rlen == MAXREFS)
 		return error("References limit exceeded", label);
 	r = &p.refs[p.rlen++];
 	if(label[1] == '&')

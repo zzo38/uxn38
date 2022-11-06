@@ -57,6 +57,8 @@ static Program p;
 static char line_comment;
 static int ssptr;
 static Uint16 sstack[256];
+static int bsptr,bcnt;
+static Uint16 bstack[256];
 
 /* clang-format off */
 
@@ -279,7 +281,7 @@ static int special_calc(const char*w) {
   const char*loop=w;
   Uint16 a,b;
   while(*w) switch(*w++) {
-    case '_': loop=w; break;
+    case '_': loop=w+1; break;
     case '0' ... '9': if(ssptr>255) return 0; sstack[ssptr++]=w[-1]-'0'; break;
     case '!': if(ssptr<1) return 0; p.ptr=sstack[--ssptr]; break;
     case '@': if(ssptr>255) return 0; sstack[ssptr++]=p.ptr; break;
@@ -296,13 +298,20 @@ static int special_calc(const char*w) {
     case ':': if(ssptr<1 || ssptr>255) return 0; a=sstack[ssptr-1]; sstack[ssptr++]=a; break;
     case ',': if(ssptr<2) return 0; b=sstack[--ssptr]; a=sstack[--ssptr]; sstack[ssptr++]=b; sstack[ssptr++]=a; break;
     case '.': if(ssptr<1) return 0; --ssptr; break;
+    case 'D': fprintf(stderr,"Depth #%x\n",ssptr); if(ssptr) fprintf(stderr,"Debug #%x\n",sstack[ssptr-1]); break;
+    case 'E': if(ssptr) fprintf(stderr,"User error #%x\n",sstack[ssptr-1]); return 0;
     case 'g': if(ssptr<1) return 0; a=sstack[--ssptr]; sstack[ssptr++]=p.data[a]; break;
     case 'G': if(ssptr<1) return 0; a=sstack[--ssptr]; if(a==0xFFFF) return 0; sstack[ssptr++]=(p.data[a]<<8)|p.data[a+1]; break;
+    case 'o': if(ssptr<1) return 0; if(sstack[ssptr-1]--) w=loop; else --ssptr; break;
     case 'p': if(ssptr<2) return 0; a=sstack[--ssptr]; b=sstack[--ssptr]; p.data[a]=b; break;
     case 'P': if(ssptr<2) return 0; a=sstack[--ssptr]; b=sstack[--ssptr]; if(a==0xFFFF) return 0; p.data[a]=b>>8; p.data[a+1]=b&255; break;
     case 'w': if(ssptr<1) return 0; a=sstack[--ssptr]; writebyte(a); break;
     case 'W': if(ssptr<1) return 0; a=sstack[--ssptr]; writeshort(a,0); break;
-    default: return 0;
+    case '(': if(ssptr<2) return 0; if(!sstack[--ssptr]) break; while(*w && *w!=')') w++; break;
+    case ')': /* do nothing */ break;
+    case '[': if(ssptr<2) return 0; if(sstack[--ssptr]) break; while(*w && *w!=']') w++; break;
+    case ']': /* do nothing */ break;
+    default: fprintf(stderr,"Unrecognized special calculation command: %c\n",w[-1]); return 0;
   }
   return 1;
 }
@@ -390,7 +399,7 @@ parse(char *w, FILE *f)
 		switch(w[1]) {
 		  case '\\': line_comment=1; break;
 		  case '~': if(!doinclude_binary(w+2)) return error("Invalid include",w); break;
-		  case ':':
+		  case ':': spec_ref:
 		    if(!(l=findlabel(w+2))) return error("Invalid reference",w);
 		    if(ssptr==256) return error("Stack overflow",w);
 		    sstack[ssptr++]=l->addr;
@@ -413,6 +422,22 @@ parse(char *w, FILE *f)
 	case '[':
 	case ']':
 		if(slen(w) == 1) break; /* else fallthrough */
+		if((w[1]=='.' || w[1]==',' || w[1]==':' || w[1]==';' || w[1]=='@' || w[1]=='\\') && !w[2]) {
+		  if(*w=='[') {
+		    if(bsptr==256) return error("Stack overflow",w);
+		    bstack[bsptr++]=i=bcnt++;
+		  } else if(*w==']') {
+		    if(!bsptr) return error("Stack underflow",w);
+		    i=bstack[--bsptr];
+		  }
+		  snprintf(w+2,10,"\\%x\\",i);
+		  switch(w[1]) {
+		    case '@': if(!makelabel(w+2)) return error("Invalid label",w); break;
+		    case '\\': goto spec_ref;
+		    default: return parse(w+1,f);
+		  }
+		  break;
+		}
 	default: defa:
 		/* opcode */
 		if(findopcode(w) || scmp(w, "BRK", 4)) {

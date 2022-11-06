@@ -46,7 +46,9 @@ The following standard tokens are available:
  $ and a number will advance the address by that number. (The padding will
  be all zeros if not filled in.)
 
- @ and a name will make a label with that name.
+ @ and a name will make a label with that name. If the label name starts
+ with a uppercase letter, then warnings about that label being unused are
+ suppressed. (Otherwise, a warning is emitted if the label is never used.)
 
  & and a name will make a label whose name is the same as the most recent
  @ command and then / and then the name specified by the & command.
@@ -89,6 +91,8 @@ The following nonstandard tokens are available:
  which exists only at compile-time).
 
  \: and a name will push the address of the name to the special stack.
+ The label must come before this command; forward references cannot be
+ used with this command.
 
  \@ and a name will pop an address from the special stack and define a
  label whose address is the address which has been popped in this way.
@@ -96,6 +100,20 @@ The following nonstandard tokens are available:
  \_ and further text is a special calculation; see the below section
  about special calculations. These are executed immediately at compile
  time, before the compiled program is written to the output file.
+
+ [@ makes a anonymous label; the matching ] command will reference the
+ same anonymous label as this one. (Nesting is allowed.)
+
+ ]@ will make a anonymous label which the matching [ before it will
+ reference it.
+
+ [, [. [; [: will act like a , . ; : referencing the anonymous label
+ defined by the matching ]@ command.
+
+ ], ]. ]; ]: will act like a , . ; : referencing the anonymous label
+ defined by the matching ]@ command.
+
+ ]\ acts like \: for the matching [@ command.
 
 For the . ,  : ; commands, the name can optionally start with & to mean
 that it is interpreted the same as for a & command.
@@ -107,7 +125,7 @@ Each instruction is a single character.
 
 Numbers 0 to 9 push that number to the special stack.
 
-_  ( -- )  Set loop point (currently not used for anything).
+_  ( -- )  Set loop point.
 
 !  ( x -- )  Set current address.
 
@@ -140,9 +158,15 @@ $  ( -- x )  Get current length.
 
 .  ( x -- )  Discard.
 
+E  ( code -- )  Emit an error and stop compiling.
+
 g  ( address -- value )  Read 8-bits from memory.
 
 G  ( address -- value )  Read 16-bits from memory.
+
+o  ( count -- count? )  If count is nonzero, decrement and go back to the
+beginning; if it is already zero then just discards it and continues the
+execution from here instead.
 
 p  ( value address -- )  Write 8-bits to memory. You can write anywhere
 including the zero page and can also overwrite memory that has already
@@ -157,6 +181,14 @@ cannot write in the zero page or overwrite what is already written.
 
 W  ( value -- )  Write 16-bits at the current address and advance. You
 cannot write in the zero page or overwrite what is already written.
+
+()  ( condition -- )  Put other commands in the () block; it will be
+executed only if the condition is zero, and skipped if nonzero. Conditional
+blocks of the same kind cannot be nested.
+
+[]  ( condition -- )  Put other commands in the [] block; it will be
+executed only if the condition is nonzero, and skipped if zero. Conditional
+blocks of the same kind cannot be nested.
 
 
 === Name output format ===

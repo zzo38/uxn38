@@ -87,12 +87,14 @@ The following nonstandard tokens are available:
 
  \~ and a file name will include the contents of the binary file.
 
+ \. or \, is like . or , but excluding the LIT instruction.
+
  \ and a number pushes the number to the special stack (which is a stack
  which exists only at compile-time).
 
  \: and a name will push the address of the name to the special stack.
  The label must come before this command; forward references cannot be
- used with this command.
+ used with this command, and & also cannot be used.
 
  \@ and a name will pop an address from the special stack and define a
  label whose address is the address which has been popped in this way.
@@ -123,7 +125,11 @@ that it is interpreted the same as for a & command.
 
 Each instruction is a single character.
 
-Numbers 0 to 9 push that number to the special stack.
+Numbers 0 to 9 and a to f push that number to the special stack.
+
+'  ( y z -- yz )  Calculates z+(y<<4).
+
+"  ( w x y z -- wxyz )  Calculates z+(y<<4)+(x<<8)+(w<<12).
 
 _  ( -- )  Set loop point.
 
@@ -163,6 +169,9 @@ E  ( code -- )  Emit an error and stop compiling.
 g  ( address -- value )  Read 8-bits from memory.
 
 G  ( address -- value )  Read 16-bits from memory.
+
+k  ( count -- count? )  Similar to o (below) but ends the loop if the new
+count is zero instead of the old count.
 
 o  ( count -- count? )  If count is nonzero, decrement and go back to the
 beginning; if it is already zero then just discards it and continues the

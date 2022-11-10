@@ -283,6 +283,9 @@ static int special_calc(const char*w) {
   while(*w) switch(*w++) {
     case '_': loop=w+1; break;
     case '0' ... '9': if(ssptr>255) return 0; sstack[ssptr++]=w[-1]-'0'; break;
+    case 'a' ... 'f': if(ssptr>255) return 0; sstack[ssptr++]=w[-1]+10-'a'; break;
+    case '\'': if(ssptr<2) return 0; a=sstack[--ssptr]; a+=sstack[--ssptr]<<4; sstack[ssptr++]=a; break;
+    case '\"': if(ssptr<4) return 0; a=sstack[--ssptr]; a+=sstack[--ssptr]<<4; a+=sstack[--ssptr]<<8; a+=sstack[--ssptr]<<12; sstack[ssptr++]=a; break;
     case '!': if(ssptr<1) return 0; p.ptr=sstack[--ssptr]; break;
     case '@': if(ssptr>255) return 0; sstack[ssptr++]=p.ptr; break;
     case '#': if(ssptr<1) return 0; p.length=sstack[--ssptr]; break;
@@ -302,14 +305,15 @@ static int special_calc(const char*w) {
     case 'E': if(ssptr) fprintf(stderr,"User error #%x\n",sstack[ssptr-1]); return 0;
     case 'g': if(ssptr<1) return 0; a=sstack[--ssptr]; sstack[ssptr++]=p.data[a]; break;
     case 'G': if(ssptr<1) return 0; a=sstack[--ssptr]; if(a==0xFFFF) return 0; sstack[ssptr++]=(p.data[a]<<8)|p.data[a+1]; break;
+    case 'k': if(ssptr<1) return 0; if(--sstack[ssptr-1]) w=loop; else --ssptr; break;
     case 'o': if(ssptr<1) return 0; if(sstack[ssptr-1]--) w=loop; else --ssptr; break;
     case 'p': if(ssptr<2) return 0; a=sstack[--ssptr]; b=sstack[--ssptr]; p.data[a]=b; break;
     case 'P': if(ssptr<2) return 0; a=sstack[--ssptr]; b=sstack[--ssptr]; if(a==0xFFFF) return 0; p.data[a]=b>>8; p.data[a+1]=b&255; break;
     case 'w': if(ssptr<1) return 0; a=sstack[--ssptr]; writebyte(a); break;
     case 'W': if(ssptr<1) return 0; a=sstack[--ssptr]; writeshort(a,0); break;
-    case '(': if(ssptr<2) return 0; if(!sstack[--ssptr]) break; while(*w && *w!=')') w++; break;
+    case '(': if(ssptr<1) return 0; if(!sstack[--ssptr]) break; while(*w && *w!=')') w++; break;
     case ')': /* do nothing */ break;
-    case '[': if(ssptr<2) return 0; if(sstack[--ssptr]) break; while(*w && *w!=']') w++; break;
+    case '[': if(ssptr<1) return 0; if(sstack[--ssptr]) break; while(*w && *w!=']') w++; break;
     case ']': /* do nothing */ break;
     default: fprintf(stderr,"Unrecognized special calculation command: %c\n",w[-1]); return 0;
   }
@@ -399,6 +403,7 @@ parse(char *w, FILE *f)
 		switch(w[1]) {
 		  case '\\': line_comment=1; break;
 		  case '~': if(!doinclude_binary(w+2)) return error("Invalid include",w); break;
+		  case '.': case ',': makereference(p.scope,w+1,p.ptr-1); if(!writebyte(0xff)) return 0; break;
 		  case ':': spec_ref:
 		    if(!(l=findlabel(w+2))) return error("Invalid reference",w);
 		    if(ssptr==256) return error("Stack overflow",w);

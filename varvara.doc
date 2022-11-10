@@ -111,7 +111,40 @@ are as follows:
 
 === Audio ===
 
-(TODO)
+30 = Vector *
+32 = Position *
+33 = Output
+38 = Envelope *
+3A = Length *
+3C = Address *
+3E = Volume
+3F = Pitch
+
+Each such device is one audio channel.
+
+The envelope can be zero for no envelope, or can be nonzero for a ADSR
+envelope where the four nybbles (high to low) are the time of each part
+of the envelope, in fifteenths of a second. The envelope is as follows:
+  0% -A- 100% -D- 50% -S- 50% -R- 0%
+
+The length is the length of the sample data (in bytes), and the address
+is the address of the sample data. The sample format is unsigned 8-bits.
+
+Volume has the high nybble for the left speaker and low nybble for the
+right speaker, where fifteen is the maximum volume and zero is silence.
+
+Writing to the pitch port will read all parameters and will start a new
+note playing. The high bit is set to disable looping, or clear to enable
+looping (until the envelope ends, if there is any). The low 7-bits are a
+MIDI note number (0x3C for middle C).
+
+If the length is greater than 256 bytes, then it is assumed to have a
+sample rate of 44100 Hz for middle C (if a different note number is
+specified, then it will be played at a different speed). If the length
+is less than 256 then it is assumed to be one cycle of a middle C note.
+
+Vector is called when a note ends, and the position and output ports are
+used to read back the status.
 
 
 === MIDI ===

@@ -1,0 +1,15 @@
+\\ Munching squares
+\\ Public domain
+
+|0100
+  ;frame #20 DEO2
+  #0001 OVRk #22 DEO2 #24 DEO2
+  #0226 DEO
+  DUP STHk BRK
+
+@frame
+  DUPk #2a DEO2
+  [@ EORk #29 DEO STHrk #2e DEO INC DUP ], JCN
+  LITr 01 EORr SWP STHrk ADD SWP
+  STHrk ,frame JCN BRK
+

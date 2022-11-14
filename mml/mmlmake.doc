@@ -1,0 +1,124 @@
+MML maker for Uxn
+
+Reads the MML text from stdin and write output to stdout.
+
+Status is written to stderr. Each line is the number of frames before the
+loop start and then the total number of frames.
+
+
+=== Outer commands ===
+
+;
+  Comment; does nothing.
+
+#DIVISIONS
+  Set the number of frames per whole note. (Normally, there are sixty
+  frames in one second.)
+
+#DRIVER
+  The name of the driver file. This command is mandatory.
+
+#STEREO
+  Set the stereo amount, from 0 (mono only; default) to 15.
+
+#TEMPO
+  Set the number of quarter notes per minute. You should specify either
+  this command or #DIVISIONS, not both; if you specify both then only
+  the one that comes later in the file will be used.
+
+@
+  Define a instrument; see below section for details.
+
+A B C D
+  Add track commands. You can have any sequence of letters
+  A, B, C, and D, and then a space and then track commands,
+  which means the notes for the music; see below section.
+
+
+=== Instrument definition ===
+
+The instrument definition format can be one of:
+
+@number=filename
+@number$=filename
+@number[attack decay sustain release]=filename
+@number[attack decay sustain release]$=filename
+
+The number is 0 to 127.
+
+If $ is present then the sample will be looped.
+
+If [] is present then they are the time of each section of the envelope,
+in fifteenths of a second (each can be 0 to 15); if absent, or if all of
+the numbers are zero, then there is no envelope.
+
+The file contains the unsigned 8-bits sample data at 44100 Hz middle C.
+
+
+=== Track commands ===
+
+a b c d e f g
+  Play a note. You can optionally add any combination of of - + ' _ for
+  flat, sharp, high octave, and low octave, respectively. Optionally can
+  also specify the note duration (see l command for details). Any such
+  specifications of octave/duration apply to the current note only.
+
+l
+  Set note length for following notes (until changed by another l command).
+  It is a number of fraction of the note, e.g. 4 for a quarter note, 8 for
+  eighth note, etc. You can optionally add dots for longer durations, like
+  in ordinary music.
+
+n
+  Play a note by the MIDI note number.
+
+o
+  Set the octave; follow by a number 0 to 9 indicating which octave, where
+  5 is the default octave and is the octave containing the middle C note.
+
+r
+  Play a rest. Can optionally have the note length, like notes can be.
+
+v
+  Set volume for further notes, from 0 to 15.
+
+w
+  Wait for a specified duration without silencing the current note or
+  changing anything else.
+
+K
+  Set transpose amount, which is a signed number of semitones. This is
+  not relative to the previous transpose amount; it is reset each time.
+
+L
+  Set global loop point.
+
+X
+  Follow by a number to emit that byte directly. It is not meaningful
+  unless you are using a customized driver program which is capable of
+  interpreting this number.
+
+^
+  Tied note with a specified duration (as for rests and notes). (Actually,
+  this command is same as w command.)
+
+<
+  Low octave.
+
+>
+  High octave.
+
+@
+  Follow by the instrument number 0 to 127, to set the instrument for any
+  further notes being played in this channel.
+
+[
+  Begin local loop. Loops cannot be nested.
+
+]
+  End local loop; follow by the repeat count number, which must be at least
+  2 and cannot exceed 255. You can have multiple ends for a local loop in
+  which case later ones may have a higher number, which indicates the total
+  number of times that it plays from the beginning of this loop, and is
+  going backward only if the number of times specified is not reached yet.
+

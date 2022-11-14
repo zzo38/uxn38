@@ -1,0 +1,7 @@
+#DRIVER driver.bin
+#DIVISIONS 120
+
+@0 [0 8 0 12]$ = square50.u8
+
+A v15@0L
+A l4 [aab2]2 [abc'b ab8a8f2 ecef ee8c8<b2>]2 [aab2]2 efb8a8f e2r2

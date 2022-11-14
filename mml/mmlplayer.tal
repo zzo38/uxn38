@@ -1,0 +1,81 @@
+|d0 @ch-loops $8
+|d8 @ch-loopc $8
+|e0 @ch-vol $8
+|e8 @ch-pitch $8
+|f0 @ch-time $8
+|f8 @ch-ptr $8
+
+|0100
+  LIT2 0000
+  LIT2 f800
+  LIT2 00fa
+  LIT2 0000
+  LIT2 fc00
+  LIT2 00fe
+  STZ2 STZ2 STZ2 STZ2
+  [; #20 DEO2 ]@
+  LIT2r 00f8
+@command
+  STHrk #08 SUB LDZ
+  DUP ,nxchan JCN POP
+  ,readc JSR
+  DUP #80 LTH [, JCN #01 ]@ LDR2 JMP2
+    ( 01 ) :cmd-note
+    ( 03 ) :cmd-rest
+    ( 05 ) :cmd-wait
+    ( 07 ) :cmd-instrument
+    ( 09 ) :cmd-goto
+    ( 0b ) :cmd-loopstart
+    ( 0d ) :cmd-loopend
+    ( 0f ) :cmd-volume
+@nxchan
+  INC STHrk #08 SUB STZ
+  INCr INCr STHrk
+  ,command JCN POP2r BRK
+@readc
+  OVR2r STH2r LDA2 INC2k OVR2r STH2r STA2 LDA JMP2r
+@send
+  OVR2r STH2r #30 SFT ADD ADD DEO2 JMP2r
+
+@cmd-note
+  STHrk #18 SUB LDZ
+  SWP STHrk #10 SUB LDZ ADD #7e ,send JSR
+  ,cmd-wait JMP
+
+@cmd-rest
+  #0000 #7e ,send JSR
+  ( fall through )
+@cmd-wait
+  ,readc JSR
+  STHrk #08 SUB STZ
+  ,command JMP
+
+@cmd-instrument
+  ,readc JSR ,readc JSR
+  LDA2k #78 ,send JSR INC2 INC2
+  LDA2k #7a ,send JSR INC2 INC2
+  LDAk STHrk #10 SUB STZ INC2
+  #7c ,send JSR
+  ;command JMP2
+
+@cmd-goto
+  ,readc JSR ,readc JSR
+  STHrk STZ2
+  ;command JMP2
+
+@cmd-loopstart
+  STH2rk #20 SUB STZ
+  STHrk LDZ2 STHrk #28 SUB STZ2
+  ;command JMP2
+
+@cmd-loopend
+  STHrk #20 SUB STHk LDZ
+  INCk STHr STZ
+  ;readc JSR2 GTH [, JCN STHrk #28 SUB LDZ2 STHrk STZ2 ]@
+  ;command JMP2
+
+@cmd-volume
+  ;readc JSR2
+  STHrk #18 SUB STZ
+  ;command JMP2
+

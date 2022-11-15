@@ -59,6 +59,7 @@ static int ssptr;
 static Uint16 sstack[256];
 static int bsptr,bcnt;
 static Uint16 bstack[256];
+static char spec_rune[128];
 
 /* clang-format off */
 
@@ -329,6 +330,7 @@ parse(char *w, FILE *f)
 	Label*l;
 	if(slen(w) >= 63)
 		return error("Invalid token", w);
+	if(spec_rune[*w]) goto defa;
 	switch(w[0]) {
 	case '(': /* comment */
 		if(slen(w) != 1) fprintf(stderr, "-- Malformed comment: %s\n", w);
@@ -347,6 +349,7 @@ parse(char *w, FILE *f)
 			return error("Invalid include", w);
 		break;
 	case '%': /* macro */
+		spec_rune[w[1]&127]=1;
 		if(!makemacro(w + 1, f))
 			return error("Invalid macro", w);
 		break;

@@ -123,8 +123,12 @@ The following nonstandard tokens are available:
 
  ]\ acts like \: for the matching [@ command.
 
-For the . ,  : ; commands, the name can optionally start with & to mean
+For the . , : ; commands, the name can optionally start with & to mean
 that it is interpreted the same as for a & command.
+
+Another nonstandard feature is that if you define a macro whose name
+starts with a character which has a special meaning, then that special
+meaning is ignored in the rest of the file.
 
 
 === Special calculations ===

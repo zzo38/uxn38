@@ -70,7 +70,11 @@ The following standard tokens are available:
  specified name.
 
  : and a name will write the 16-bit address of the specified name directly,
- without any opcode.
+ without any opcode. (It is like ; but excluding the LIT2 instruction.)
+
+ - and a name is like . but without the LIT opcode.
+
+ _ and a name is like , but without the LIT opcode.
 
  " and any characters (other than whitespaces) will emit that sequence of
  characters without any opcodes or delimiters. (If you need spaces, then
@@ -87,7 +91,9 @@ The following nonstandard tokens are available:
 
  \~ and a file name will include the contents of the binary file.
 
- \. or \, is like . or , but excluding the LIT instruction.
+ \. or \, is like . or , but excluding the LIT instruction. (These are
+ like - and _ but are nonstandard; they were added before the - and _
+ signs were made standard.)
 
  \ and a number pushes the number to the special stack (which is a stack
  which exists only at compile-time).

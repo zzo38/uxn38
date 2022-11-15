@@ -394,6 +394,14 @@ parse(char *w, FILE *f)
 		makereference(p.scope, w, p.ptr);
 		if(!writeshort(0xffff, 0)) return 0;
 		break;
+	case '-': /* raw byte zero-page */
+		makereference(p.scope, w, p.ptr);
+		if(!writebyte(0xff)) return 0;
+		break;
+	case '_': /* raw byte relative */
+		makereference(p.scope, w, p.ptr);
+		if(!writebyte(0xff)) return 0;
+		break;
 	case '"': /* raw string */
 		i = 0;
 		while((c = w[++i]))
@@ -478,6 +486,14 @@ resolve(void)
 	for(i = 0; i < p.rlen; i++) {
 		Reference *r = &p.refs[i];
 		switch(r->rune) {
+		case '_':
+			if(!(l = findlabel(r->name)))
+				return error("Unknown relative reference", r->name);
+			p.data[r->addr] = (Sint8)(l->addr - r->addr - 2);
+			if((Sint8)p.data[r->addr] != (l->addr - r->addr - 2))
+				return error("Relative reference is too far", r->name);
+			l->refs++;
+			break;
 		case '.':
 			if(!(l = findlabel(r->name)))
 				return error("Unknown zero-page reference", r->name);
@@ -490,6 +506,12 @@ resolve(void)
 			p.data[r->addr + 1] = (Sint8)(l->addr - r->addr - 3);
 			if((Sint8)p.data[r->addr + 1] != (l->addr - r->addr - 3))
 				return error("Relative reference is too far", r->name);
+			l->refs++;
+			break;
+		case '-':
+			if(!(l = findlabel(r->name)))
+				return error("Unknown absolute reference", r->name);
+			p.data[r->addr] = l->addr & 0xff;
 			l->refs++;
 			break;
 		case ';':

@@ -168,6 +168,10 @@ $  ( -- x )  Get current length.
 
 ^  ( x y -- z )  Bitwise XOR.
 
+<  ( x y -- z )  Left shift x by y bits.
+
+>  ( x y -- z )  Right shift x by y bits.
+
 :  ( x -- x x )  Duplicate.
 
 ,  ( x y -- y x )  Swap.

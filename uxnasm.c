@@ -299,6 +299,8 @@ static int special_calc(const char*w) {
     case '&': if(ssptr<2) return 0; b=sstack[--ssptr]; a=sstack[--ssptr]; sstack[ssptr++]=a&b; break;
     case '|': if(ssptr<2) return 0; b=sstack[--ssptr]; a=sstack[--ssptr]; sstack[ssptr++]=a|b; break;
     case '^': if(ssptr<2) return 0; b=sstack[--ssptr]; a=sstack[--ssptr]; sstack[ssptr++]=a^b; break;
+    case '<': if(ssptr<2) return 0; b=sstack[--ssptr]; a=sstack[--ssptr]; sstack[ssptr++]=(b&~15?0:a<<b); break;
+    case '>': if(ssptr<2) return 0; b=sstack[--ssptr]; a=sstack[--ssptr]; sstack[ssptr++]=(b&~15?0:a>>b); break;
     case ':': if(ssptr<1 || ssptr>255) return 0; a=sstack[ssptr-1]; sstack[ssptr++]=a; break;
     case ',': if(ssptr<2) return 0; b=sstack[--ssptr]; a=sstack[--ssptr]; sstack[ssptr++]=b; sstack[ssptr++]=a; break;
     case '.': if(ssptr<1) return 0; --ssptr; break;
@@ -438,7 +440,7 @@ parse(char *w, FILE *f)
 		break;
 	case '[':
 	case ']':
-		if(slen(w) == 1) break; /* else fallthrough */
+		if(slen(w) == 1) break;
 		if((w[1]=='.' || w[1]==',' || w[1]==':' || w[1]==';' || w[1]=='@' || w[1]=='\\') && !w[2]) {
 		  if(*w=='[') {
 		    if(bsptr==256) return error("Stack overflow",w);
@@ -455,6 +457,7 @@ parse(char *w, FILE *f)
 		  }
 		  break;
 		}
+		/* fall through */
 	default: defa:
 		/* opcode */
 		if(findopcode(w) || scmp(w, "BRK", 4)) {

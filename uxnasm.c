@@ -1,3 +1,8 @@
+#if 0
+gcc -s -O2 -o ./uxnasm uxnasm.c
+exit
+#endif
+
 #include <stdio.h>
 
 /*
@@ -395,7 +400,7 @@ parse(char *w, FILE *f)
 		makereference(p.scope, w, p.ptr);
 		if(!writeshort(0xffff, 1)) return 0;
 		break;
-	case ':': /* raw short absolute */
+	case ':': case '=': /* raw short absolute */
 		makereference(p.scope, w, p.ptr);
 		if(!writeshort(0xffff, 0)) return 0;
 		break;
@@ -527,7 +532,7 @@ resolve(void)
 			p.data[r->addr + 2] = l->addr & 0xff;
 			l->refs++;
 			break;
-		case ':':
+		case ':': case '=':
 			if(!(l = findlabel(r->name)))
 				return error("Unknown absolute reference", r->name);
 			p.data[r->addr + 0] = l->addr >> 0x8;

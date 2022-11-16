@@ -72,6 +72,8 @@ The following standard tokens are available:
  : and a name will write the 16-bit address of the specified name directly,
  without any opcode. (It is like ; but excluding the LIT2 instruction.)
 
+ = and a name is the same as : and a name.
+
  - and a name is like . but without the LIT opcode.
 
  _ and a name is like , but without the LIT opcode.

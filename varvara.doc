@@ -226,6 +226,8 @@ long read since if you write to only 0xAC then the address is undefined.
 
 (TODO)
 
+See also emulator.doc for nonstandard meanings of delete/append ports.
+
 
 === Date/time ===
 

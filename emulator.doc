@@ -186,11 +186,69 @@ The vector is called after passing command-line arguments, but before any
 other events occur. If accepting input from stdin, then it will also be
 called after all input from stdin has been read.
 
+The -x switch also changes the meaning of the delete and append ports of
+the file device. See below about extended file device.
+
 (Note: Using this feature will make the program not portable to other
 implementations, and should be avoided if possible. However, it is
 available if its functions (e.g. expanded memory) are needed in your
 program for any reason. Most programs probably will not need expanded
 memory; some might be able to optionally use it.)
+
+
+=== Extended file device ===
+
+If the -x switch is used, then the delete and append ports of the file
+device have a different meaning than usual.
+
+N.B. Use of these extensions in an implementation which does not support
+them may cause files to be inadvertently deleted or corrupted. (This
+implementation will ignore the delete port entirely if the -x switch is
+not specified.) Furthermore, they may be changed in future; please make
+a discussion if you have any intention to use these extensions, or even
+to use the delete/append ports without these extensions. There are some
+problems with the design of the file device, so I would want to suggest
+these changes in order to make an improvement. Unfortunately, it is not
+as simple as other devices, but it may be necessary if file handling is
+to be working properly.
+
+The delete port can be given any of the values:
+
+* 0x00 = Does nothing.
+
+* 0x01 = Delete the current file. (Not currently implemented.)
+
+* 0x10 = Close the file.
+
+* 0x11 = Open the file for reading. Success is 1 if opened.
+
+* 0x12 = Open the file for writing. Success is 1 if opened.
+
+* 0x80 to 0x8F = Seek. Bit0 and bit1 specify how much the length field
+should be multiplied by, where 0 means zero, 1 means one, 2 means 64K,
+and 3 is reserved. Bit2 and bit3 indicate where to seek and which way,
+where 0 means forward from the current position, 1 means backward from
+the current position, 2 means forward from the beginning, and 3 means
+backward from the beginning.
+
+Telling it to open a file will close it first, even if it is already open
+in the correct mode. Also, seeking will not work unless the file is already
+open, so it must first be opened, either by one of the above commands for
+opening a file or by attempting to read from or write to it.
+
+The append port has one of the following values:
+
+* 0 = Files opened for writing are truncated.
+
+* 1 = Files opened for writing will append at the end of the file.
+
+* 2 = Files are opened for both reading and writing. In this case,
+switching from reading to writing or vice-versa will not close and reopen
+the file like it does in other cases. If writing is disabled, then this is
+treated the same as 0.
+
+Any value may be bitwise ORed by sixteen to refuse to open a file for
+writing if the file already exists.
 
 
 === Extension loading ===

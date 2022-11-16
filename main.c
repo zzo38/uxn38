@@ -150,6 +150,7 @@ static Uint8 use_screen=1;
 static Uint8 use_mouse=1;
 static Uint8 use_debug=0;
 static Uint8 use_utc=0;
+static Uint8 use_extension=0;
 static Uint8 hide_cursor=0;
 static Uint8 allow_write=0;
 static Uint8 zoom=1;
@@ -420,6 +421,71 @@ static Uint16 files_stat(char*name,Uint16 len,Uint8*out) {
   return 0;
 }
 
+static void files_seek(UxnFile*uf,Uint8 mode,Uint32 len) {
+  switch(mode&3) {
+    case 0: len=0; break;
+    case 1: /* do nothing */ break;
+    case 2: len<<=16; break;
+    case 3: return;
+  }
+  switch(uf->mode) {
+    case 1: case 2: case 4:
+      switch((mode>>2)&3) {
+        case 0: fseek(uf->file,len,SEEK_CUR); break;
+        case 1: fseek(uf->file,-len,SEEK_CUR); break;
+        case 2: fseek(uf->file,len,SEEK_SET); break;
+        case 3: fseek(uf->file,-len,SEEK_END); break;
+      }
+      break;
+  }
+}
+
+static int files_set(Device*dev,int rw) {
+  // rw: 0(close) 1(read) 2(write)
+  // return: 1 if file opened, 0 if not opened
+  Uint8 m=dev->d[7];
+  UxnFile*uf=dev->aux;
+  if(uf->file) fclose(uf->file);
+  if(uf->dir) closedir(uf->dir);
+  uf->file=0;
+  uf->dir=0;
+  uf->de=0;
+  uf->mode=0;
+  dev->d[2]=dev->d[3]=0;
+  if(!uf->name[0]) return 0;
+  if(m && !use_extension) m=1;
+  if((m&15)==2 && rw && allow_write) {
+    if(rw==1) m&=15;
+    if(uf->file=fopen(uf->name,m&16?"w+x":"r+")) {
+      uf->mode=4;
+      return 1;
+    } else if(uf->file=fopen(uf->name,m&16?"w+x":"w+")) {
+      uf->mode=4;
+      return 1;
+    } else {
+      warn("Cannot open file '%s' for reading and writing",uf->name);
+    }
+  } else if(rw==1) {
+    if(uf->dir=opendir(uf->name)) {
+      uf->mode=3;
+      return 1;
+    } else if(uf->file=fopen(uf->name,"r")) {
+      uf->mode=1;
+      return 1;
+    } else {
+      warn("Cannot open file '%s' for reading",uf->name);
+    }
+  } else if(rw==2 && allow_write) {
+    if(uf->file=fopen(uf->name,m==1?"a":m==17?"ax":m==16?"wx":"w")) {
+      uf->mode=2;
+      return 1;
+    } else {
+      warn("Cannot open file '%s' for writing",uf->name);
+    }
+  }
+  return 0;
+}
+
 static void files_out(Device*dev,Uint8 id) {
   UxnFile*uf=dev->aux;
   Uint16 len=GET16(dev->d+10);
@@ -433,15 +499,22 @@ static void files_out(Device*dev,Uint8 id) {
       y=files_stat(uf->name,len,mem+addr);
       if(y<=len) PUT16(dev->d+2,y);
       break;
+    case 6:
+      if(!use_extension) break;
+      dev->d[2]=dev->d[3]=0;
+      switch(dev->d[6]) {
+        case 0x10 ... 0x12: // Close/open
+          if(dev->d[6]==0x12 && !allow_write) goto disallow;
+          dev->d[3]=files_set(dev,dev->d[6]&0x0F);
+          break;
+        case 0x80 ... 0x8F: // Seek
+          files_seek(uf,dev->d[6]&0x0F,len);
+          break;
+      }
+      break;
     case 9:
       addr=GET16(dev->d+8);
-      if(uf->file) fclose(uf->file);
-      if(uf->dir) closedir(uf->dir);
-      uf->file=0;
-      uf->dir=0;
-      uf->de=0;
-      uf->mode=0;
-      dev->d[2]=dev->d[3]=0;
+      files_set(dev,0);
       x=GET16(dev->d+8);
       for(i=0;i<4095;i++) {
         if(!(uf->name[i]=mem[x+i])) break;
@@ -453,7 +526,7 @@ static void files_out(Device*dev,Uint8 id) {
       addr=GET16(dev->d+12);
       dev->d[2]=dev->d[3]=0;
       read:
-      if(uf->mode==1) {
+      if(uf->mode==1 || uf->mode==4) {
         if(!len) break;
         x=fread(mem+addr,1,len,uf->file);
         PUT16(dev->d+2,x);
@@ -464,32 +537,19 @@ static void files_out(Device*dev,Uint8 id) {
       } else if(uf->mode==3) {
         //TODO
       } else {
-        if(uf->file) fclose(uf->file);
-        if(uf->dir) closedir(uf->dir);
-        uf->file=0;
-        uf->dir=0;
-        uf->de=0;
-        if(!uf->name[0]) break;
-        if(uf->dir=opendir(uf->name)) {
-          uf->mode=3;
-          goto read;
-        } else if(uf->file=fopen(uf->name,"r")) {
-          uf->mode=1;
-          goto read;
-        } else {
-          warn("Cannot open file '%s' for reading",uf->name);
-        }
+        if(files_set(dev,1)) goto read;
       }
       break;
     case 15:
       addr=GET16(dev->d+14);
       dev->d[2]=dev->d[3]=0;
       if(!allow_write) {
+        disallow:
         warnx("Not allowed to write to file '%s'.",uf->name);
         break;
       }
       write:
-      if(uf->mode==2) {
+      if(uf->mode==2 || uf->mode==4) {
         if(!len) break;
         x=fwrite(mem+addr,1,len,uf->file);
         PUT16(dev->d+2,x);
@@ -498,18 +558,7 @@ static void files_out(Device*dev,Uint8 id) {
           clearerr(uf->file);
         }
       } else {
-        if(uf->file) fclose(uf->file);
-        if(uf->dir) closedir(uf->dir);
-        uf->file=0;
-        uf->dir=0;
-        uf->de=0;
-        if(!uf->name[0]) break;
-        if(uf->file=fopen(uf->name,dev->d[7]?"a":"w")) {
-          uf->mode=2;
-          goto read;
-        } else {
-          warn("Cannot open file '%s' for %sing",uf->name,dev->d[7]?"append":"writ");
-        }
+        if(files_set(dev,2)) goto write;
       }
       break;
   }
@@ -522,7 +571,7 @@ static Uint8 files_in(Device*dev,Uint8 id) {
     case 12: case 13:
       dev->d[2]=dev->d[3]=0;
       read:
-      if(uf->mode==1) {
+      if(uf->mode==1 || uf->mode==4) {
         c=fgetc(uf->file);
         if(c==EOF) {
           if(ferror(uf->file)) {
@@ -537,21 +586,7 @@ static Uint8 files_in(Device*dev,Uint8 id) {
       } else if(uf->mode==3) {
         return 0;
       } else {
-        if(uf->file) fclose(uf->file);
-        if(uf->dir) closedir(uf->dir);
-        uf->file=0;
-        uf->dir=0;
-        uf->de=0;
-        if(!uf->name[0]) break;
-        if(uf->name[0]=='.' && !uf->name[1] && (uf->dir=opendir(uf->name))) {
-          uf->mode=3;
-          goto read;
-        } else if(uf->file=fopen(uf->name,"r")) {
-          uf->mode=1;
-          goto read;
-        } else {
-          warn("Cannot open file '%s' for reading",uf->name);
-        }
+        if(files_set(dev,1)) goto read;
       }
       return 0;
     default: return dev->d[id];
@@ -974,7 +1009,7 @@ int main(int argc,char**argv) {
     case 'q': use_console=0; break;
     case 't': timer_rate=strtol(optarg,0,10); break;
     case 'w': default_width=strtol(optarg,0,10); break;
-    case 'x': device[15].in=extension_in; device[15].out=extension_out; break;
+    case 'x': use_extension=1; device[15].in=extension_in; device[15].out=extension_out; break;
     case 'y': allow_write=0; device[10].out=device[11].out=files_out; device[10].in=device[11].in=files_in; break;
     case 'z': zoom=strtol(optarg,0,10); break;
     default: return 1;

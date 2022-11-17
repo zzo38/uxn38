@@ -211,8 +211,8 @@ write the address of the data to the stat/read/write port. The 0xA2 port
 have been successfully transferred, or zero if it is not successful.
 
 If there are multiple reads without other operations (including setting
-the file name) in betwee, or multiple writes without other operations
-(including setting the file name) in betwee, then it will continue from
+the file name) in between, or multiple writes without other operations
+(including setting the file name) in between, then it will continue from
 where it left off in the file; otherwise it starts from the beginning.
 
 For the first write, it will truncate the file if the append byte is

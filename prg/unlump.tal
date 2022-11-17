@@ -1,0 +1,52 @@
+\\ Extract files from a Hamster archive file.
+\\ (Public domain)
+
+|0100
+  LITr 00
+  [; #10 DEO2 BRK ]@
+
+  #12 DEI DUP #0a EQU [, JCN STHrk STZ INCr BRK ]@
+
+  #00 STHr STZ
+  #0000 DUP2 #10 DEO2 #a8 DEO2
+
+@next-lump
+  LITr 00
+  [@
+    #ac DEI
+    #a3 DEI [, JCN #010f DEO ]@
+    DUP #00 EQU ,end-name JCN
+    DUP #18 DEO
+    STHrk STZ INCr
+  ], JMP
+
+@end-name
+  #00 STHr STZ
+  #0a18 DEO
+  #0000 #b8 DEO2
+
+\\ Big units
+  #ac DEI2 SWP
+  ORAk #00 EQU [, JCN
+    [@
+      #8000 ,copy JSR
+      #8000 ,copy JSR
+      #0001 SUB2
+    ORAk ], JCN
+  ]@ POP2
+
+\\ Small units
+  #ac DEI2
+  DUP #80 LTH [, JCN
+    #8000 ,copy JSR
+    #7f AND
+  ]@
+  SWP ,copy JSR
+
+,next-lump JMP
+
+@copy
+  DUP2 #aa DEO2 #ba DEO2
+  #8000 DUP2 #ac DEO2 #be DEO2
+  JMP2r
+

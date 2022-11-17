@@ -45,6 +45,9 @@
   Hide the system mouse cursor. (The Uxn program might still draw its own
   mouse cursor, which most do.)
 
+-j
+  Enable key repeat for joypad emulation.
+
 -n
   Disable GUI. This switch is required in order to read stdin; without it,
   stdin cannot be read (although command-line arguments still work).

@@ -153,6 +153,7 @@ static Uint8 use_utc=0;
 static Uint8 use_extension=0;
 static Uint8 hide_cursor=0;
 static Uint8 allow_write=0;
+static Uint8 joypad_repeat=0;
 static Uint8 zoom=1;
 static Sint16 default_width=512;
 static Sint16 default_height=320;
@@ -897,7 +898,7 @@ static int run_screen(void) {
         }
         if(paused) break;
         if(i) {
-          if(!(device[8].d[2]&i)) {
+          if(joypad_repeat || !(device[8].d[2]&i)) {
             device[8].d[2]|=i;
             run(GET16(device[8].d));
           }
@@ -991,7 +992,7 @@ int main(int argc,char**argv) {
   device[10].aux=&uxnfile0;
   device[11].aux=&uxnfile1;
   device[12].in=datetime_in;
-  while((i=getopt(argc,argv,"+ABDFNQT:YZa:dh:inp:qt:w:xyz:"))>0) switch(i) {
+  while((i=getopt(argc,argv,"+ABDFNQT:YZa:dh:ijnp:qt:w:xyz:"))>0) switch(i) {
     case 'B': bicycle=1; device[0].in=default_in; break;
     case 'D': scrflags|=SDL_DOUBLEBUF; break;
     case 'F': scrflags|=SDL_FULLSCREEN; break;
@@ -1004,6 +1005,7 @@ int main(int argc,char**argv) {
     case 'd': use_debug=1; break;
     case 'h': default_height=strtol(optarg,0,10); break;
     case 'i': hide_cursor=1; break;
+    case 'j': joypad_repeat=1; break;
     case 'n': use_screen=0; break;
     case 'p': palet=strtol(optarg,0,10)&7; break;
     case 'q': use_console=0; break;

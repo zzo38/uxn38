@@ -232,7 +232,7 @@ should be multiplied by, where 0 means zero, 1 means one, 2 means 64K,
 and 3 is reserved. Bit2 and bit3 indicate where to seek and which way,
 where 0 means forward from the current position, 1 means backward from
 the current position, 2 means forward from the beginning, and 3 means
-backward from the beginning.
+backward from the end.
 
 Telling it to open a file will close it first, even if it is already open
 in the correct mode. Also, seeking will not work unless the file is already

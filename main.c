@@ -8,6 +8,7 @@ exit
 #include "SDL.h"
 #include <dirent.h>
 #include <err.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -414,10 +415,11 @@ static void console_out(Device*dev,Uint8 id) {
   }
 }
 
-static Uint16 files_stat(char*name,Uint16 len,Uint8*out) {
+static Uint16 files_stat(int fd,char*name,Uint16 len,Uint8*out) {
   struct stat st;
-  if(strlen(name)+7>len || stat(name,&st)) return 0;
-  if(st.st_size<0x10000) return snprintf(out,len,"%04x %s\n",(unsigned int)st.st_size,name);
+  if(strlen(name)+7>len || fstatat(fd,name,&st,0)) return 0;
+  if(S_ISDIR(st.st_mode)) return snprintf(out,len,"---- %s\n",name);
+  else if(st.st_size<0x10000) return snprintf(out,len,"%04x %s\n",(unsigned int)st.st_size,name);
   else return snprintf(out,len,"???? %s\n",name);
   return 0;
 }
@@ -437,6 +439,10 @@ static void files_seek(UxnFile*uf,Uint8 mode,Uint32 len) {
         case 2: fseek(uf->file,len,SEEK_SET); break;
         case 3: fseek(uf->file,-len,SEEK_END); break;
       }
+      break;
+    case 3:
+      if(((mode>>2)&3)==2) rewinddir(uf->dir);
+      uf->de=0;
       break;
   }
 }
@@ -497,7 +503,7 @@ static void files_out(Device*dev,Uint8 id) {
       addr=GET16(dev->d+4);
       dev->d[2]=dev->d[3]=0;
       if(!uf->name[0]) break;
-      y=files_stat(uf->name,len,mem+addr);
+      y=files_stat(AT_FDCWD,uf->name,len,mem+addr);
       if(y<=len) PUT16(dev->d+2,y);
       break;
     case 6:
@@ -536,7 +542,17 @@ static void files_out(Device*dev,Uint8 id) {
           clearerr(uf->file);
         }
       } else if(uf->mode==3) {
-        //TODO
+        do {
+          if(uf->de) {
+            if(x=files_stat(dirfd(uf->dir),uf->de->d_name,len,mem+addr)) {
+              addr+=x;
+              len-=x;
+            } else {
+              break;
+            }
+          }
+        } while(uf->de=readdir(uf->dir));
+        PUT16(dev->d+2,addr-GET16(dev->d+12));
       } else {
         if(files_set(dev,1)) goto read;
       }

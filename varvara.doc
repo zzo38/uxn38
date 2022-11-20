@@ -224,7 +224,17 @@ file (in this case, the address and max number of bytes is ignored). In
 this case, you should write to both 0xAB and 0xAC if you want to do a
 long read since if you write to only 0xAC then the address is undefined.
 
-(TODO)
+Stat will result in a directory entry for the current file being written
+to the specified address (or nothing if it does not fit). The format of
+a directory entry is four characters being its size in lowercase
+hexadecimal with leading zeros, or ???? if it is bigger than 64K, or ----
+if it is a subdirectory; after that is a space, and then the file name,
+and then a line feed.
+
+If the current file is a directory, then reading from it will read the
+directory entries in the same format as above. Only full entries can be
+read; you cannot read partial entries. Only as many full entries as will
+fit in the allowed space will be retrieved.
 
 See also emulator.doc for nonstandard meanings of delete/append ports.
 

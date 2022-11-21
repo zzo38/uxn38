@@ -59,6 +59,9 @@
 -q
   Disable standard I/O.
 
+-s #
+  Define scroll size.
+
 -t #
   Set the frame rate, in milliseconds per frame.
 
@@ -107,6 +110,9 @@ F10
 
 PAUSE
   Pause/unpause VM.
+
+PAGE-UP / PAGE-DOWN
+  Scroll up/down.
 
 Some programs use shortcut keys with control and letters. This does not
 work in this program; therefore, END is an alias for the joypad A button

@@ -155,6 +155,7 @@ static Uint8 use_extension=0;
 static Uint8 hide_cursor=0;
 static Uint8 allow_write=0;
 static Uint8 joypad_repeat=0;
+static Uint16 scroll_size=1;
 static Uint8 zoom=1;
 static Sint16 default_width=512;
 static Sint16 default_height=320;
@@ -901,6 +902,8 @@ static int run_screen(void) {
           case SDLK_DOWN: i=0x20; break;
           case SDLK_LEFT: i=0x40; break;
           case SDLK_RIGHT: i=0x80; break;
+          case SDLK_PAGEUP: i=-scroll_size; goto scroll;
+          case SDLK_PAGEDOWN: i=scroll_size; goto scroll;
           case SDLK_F1: run(GET16(device[2].d)); timer_expired=0; break;
           case SDLK_F2: if(audio_option) audio_option['m'-'a']^=1; break;
           case SDLK_F3: use_mouse^=1; set_cursor(); break;
@@ -923,6 +926,12 @@ static int run_screen(void) {
           run(GET16(device[8].d));
           device[8].d[3]=0;
         }
+        break;
+      scroll:
+        if(paused || !i) break;
+        PUT16(device[9].d+12,i);
+        run(GET16(device[9].d));
+        PUT16(device[9].d+12,0);
         break;
       case SDL_KEYUP:
         i=0;
@@ -1008,7 +1017,7 @@ int main(int argc,char**argv) {
   device[10].aux=&uxnfile0;
   device[11].aux=&uxnfile1;
   device[12].in=datetime_in;
-  while((i=getopt(argc,argv,"+ABDFNQT:YZa:dh:ijnp:qt:w:xyz:"))>0) switch(i) {
+  while((i=getopt(argc,argv,"+ABDFNQT:YZa:dh:ijnp:qs:t:w:xyz:"))>0) switch(i) {
     case 'B': bicycle=1; device[0].in=default_in; break;
     case 'D': scrflags|=SDL_DOUBLEBUF; break;
     case 'F': scrflags|=SDL_FULLSCREEN; break;
@@ -1025,6 +1034,7 @@ int main(int argc,char**argv) {
     case 'n': use_screen=0; break;
     case 'p': palet=strtol(optarg,0,10)&7; break;
     case 'q': use_console=0; break;
+    case 's': scroll_size=strtol(optarg,0,10); break;
     case 't': timer_rate=strtol(optarg,0,10); break;
     case 'w': default_width=strtol(optarg,0,10); break;
     case 'x': use_extension=1; device[15].in=extension_in; device[15].out=extension_out; break;

@@ -21,12 +21,23 @@
   ], JMP
 
 @end-name
-  #00 STHr STZ
+  STHr STZ
   #0a18 DEO
   #0000 #b8 DEO2
 
+\\ Lump data size
+  #ac DEI2k ( Great )
+  ROT DEI2 ( Small )
+
+\\ Small units
+  DUP #80 LTH [, JCN
+    #8000 ,copy JSR
+    #7f AND
+  ]@
+  SWP ,copy JSR
+
 \\ Big units
-  #ac DEI2 SWP
+  SWP
   ORAk #00 EQU [, JCN
     [@
       #8000 ,copy JSR
@@ -34,14 +45,6 @@
       #0001 SUB2
     ORAk ], JCN
   ]@ POP2
-
-\\ Small units
-  #ac DEI2
-  DUP #80 LTH [, JCN
-    #8000 ,copy JSR
-    #7f AND
-  ]@
-  SWP ,copy JSR
 
 ,next-lump JMP
 

@@ -16,6 +16,9 @@
 -Q
   Disable the mouse initially (it can still be enabled at run time).
 
+-S
+  Disallow the uxn program to change the screen size.
+
 -T year.month.day.hours.minutes.seconds.wday.yday.yday.isdst
   Use a fixed value for the date/time, by numbers with dots in between. In
   this case, it will read the same values from the date/time device each
@@ -60,7 +63,7 @@
   Disable standard I/O.
 
 -s #
-  Define scroll size.
+  Define scroll amount.
 
 -t #
   Set the frame rate, in milliseconds per frame.

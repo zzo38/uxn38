@@ -157,6 +157,7 @@ static Uint8 allow_write=0;
 static Uint8 joypad_repeat=0;
 static Uint16 scroll_size=1;
 static Uint8 zoom=1;
+static Uint8 disallow_size_change=0;
 static Sint16 default_width=512;
 static Sint16 default_height=320;
 static Uint32 scrflags=SDL_SWSURFACE;
@@ -698,6 +699,11 @@ static void screen_out(Device*dev,Uint8 id) {
   Uint16 x=GET16(dev->d+8);
   Uint16 y=GET16(dev->d+10);
   Uint8 z=dev->d[id];
+  if(id<6 && disallow_size_change) {
+    PUT16(dev->d+2,scr_w);
+    PUT16(dev->d+4,scr_h);
+    return;
+  }
   switch(id) {
     case 2: case 3:
       x=GET16(dev->d+2);
@@ -1017,12 +1023,13 @@ int main(int argc,char**argv) {
   device[10].aux=&uxnfile0;
   device[11].aux=&uxnfile1;
   device[12].in=datetime_in;
-  while((i=getopt(argc,argv,"+ABDFNQT:YZa:dh:ijnp:qs:t:w:xyz:"))>0) switch(i) {
+  while((i=getopt(argc,argv,"+ABDFNQST:YZa:dh:ijnp:qs:t:w:xyz:"))>0) switch(i) {
     case 'B': bicycle=1; device[0].in=default_in; break;
     case 'D': scrflags|=SDL_DOUBLEBUF; break;
     case 'F': scrflags|=SDL_FULLSCREEN; break;
     case 'N': scrflags|=SDL_NOFRAME; break;
     case 'Q': use_mouse=0; break;
+    case 'S': disallow_size_change=1; break;
     case 'T': device[12].in=default_in; set_datetime(optarg); break;
     case 'Y': allow_write=1; device[10].out=device[11].out=files_out; device[10].in=device[11].in=files_in; break;
     case 'Z': use_utc=1; break;

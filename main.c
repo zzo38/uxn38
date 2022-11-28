@@ -226,6 +226,9 @@ static Sint32*audio_option;
 static SDL_AudioSpec audiospec;
 
 static Uint8 debugger=0;
+static Uint16 breakpoint=0;
+static Uint16 break_pc=0x0100;
+static Uint8 debug_op=0;
 
 static void debug(int i) {
   int j;
@@ -266,7 +269,7 @@ static void run(Uint16 pc) {
   if(!pc) return;
   start:
   while(v=mem[pc++]) {
-    // if(use_debug) printf("! pc=%04X v=%02X ds=%02X rs=%02X\n",pc-1,v,ds.p,rs.p);
+    if(pc==breakpoint && use_screen) goto stop;
     s=(v&0x40?&rs:&ds);
     k=s->p;
     switch(v&0x1F) {
@@ -330,6 +333,11 @@ static void run(Uint16 pc) {
       Push16(y);
       if(v&0x20) pc=x; else pc+=(Sint8)x;
     }
+  }
+  if(pc==breakpoint && use_screen) {
+    stop:
+    paused=debugger=picture_changed=1;
+    break_pc=pc-1;
   }
   fflush(stdout);
   if(bicycle) {
@@ -917,8 +925,13 @@ static void debug_screen(Uint8*s,Uint8 k) {
   static Uint8 din;
   static Uint32 addr=0;
   static Uint32 scrol=0;
+  static const char opname[]=
+    "?IPNSRDOENGLJJJSLSLSLSDDASMDAOES"
+    "?NOIWOUVQETTMCSTDTDTDTEEDUUINROF"
+    "?CPPPTPRUQHHPNRHZZRRAAIODBLVDART"
+  ;
   char buf[81];
-  int i;
+  int i,j;
   Stack*z;
   FILE*f;
   UxnFile*u;
@@ -940,7 +953,7 @@ static void debug_screen(Uint8*s,Uint8 k) {
         memcpy(s+80*10,buf,snprintf(buf,81,"<PAUSE> Resume"));
         memcpy(s+80*13,buf,snprintf(buf,81,"Pages: CTRL+"));
         memcpy(s+80*14,buf,snprintf(buf,81," A:Stack   B:Return  C:Device  D:Memory  E:Files "));
-        memcpy(s+80*15,buf,snprintf(buf,81," F:        G:        N:        O:        P:      "));
+        memcpy(s+80*15,buf,snprintf(buf,81," F:Code    G:        N:        O:        P:      "));
         memcpy(s+80*16,buf,snprintf(buf,81," Q:        R:        S:        T:        U:      "));
         memcpy(s+80*17,buf,snprintf(buf,81," V:        W:        X:        Y:        Z:Main  "));
         break;
@@ -977,8 +990,29 @@ static void debug_screen(Uint8*s,Uint8 k) {
           memcpy(s+80*(7*i+6),buf,snprintf(buf,81," <%c> Close  <%c> Rewind","cC"[i],"rR"[i]));
         }
         break;
+      case 6:
+        j=break_pc;
+        for(i=0;i<16 && j<0x10000;i++) {
+          memcpy(s+80*i,buf,snprintf(buf,81,"%04x: %c%c %c%c%c%c%c%c",j,breakpoint==j+1?'*':' ',i?' ':'>',
+           opname[mem[j]&0x1F],opname[(mem[j]&0x1F)+0x20],opname[(mem[j]&0x1F)+0x40]
+           ,mem[j]&0x20?'2':'_',mem[j]&0x40?'r':'_',mem[j]&0x80?'k':'_' ));
+          if(mem[j]==0x80 || mem[j]==0xC0) {
+            memcpy(s+80*i+9,buf,snprintf(buf,81,"LIT_%c  %02x",mem[j]&0x40?'r':'_',mem[j+1]));
+            j+=2;
+          } else if(mem[j]==0xA0 || mem[j]==0xE0) {
+            memcpy(s+80*i+9,buf,snprintf(buf,81,"LIT2%c  %02x%02x",mem[j]&0x40?'r':'_',mem[j+1],mem[j+2]));
+            j+=3;
+          } else {
+            if(!mem[j]) memcpy(s+80*i+9,"BRK",3);
+            j++;
+          }
+        }
+        memcpy(s+80*17,buf,snprintf(buf,81,"ds:%02x rs:%02x",ds.p,rs.p));
+        memcpy(s+80*19,buf,snprintf(buf,81,"<SPACE> Step  <RET> Continue  <x> Execute"));
+        memcpy(s+80*20,buf,snprintf(buf,81,"<,> Set Breakpoint  <.> Clear Breakpoint"));
+        break;
       default:
-        if(page<0) page=5; else page=0;
+        if(page<0) page=6; else page=0;
         goto show;
     }
   } else {
@@ -1061,6 +1095,53 @@ static void debug_screen(Uint8*s,Uint8 k) {
         if(k=='C') files_set(device+11,0);
         if(k=='r') files_seek(&uxnfile0,8,0);
         if(k=='R') files_seek(&uxnfile1,8,0);
+        break;
+      case 6:
+        if(k==8 || k==11) --break_pc;
+        if(k==12 || k==10) ++break_pc;
+        if(k>='0' && k<='9') break_pc=(break_pc<<4)+(k-'0');
+        if(k>='a' && k<='f') break_pc=(break_pc<<4)+(k+10-'a');
+        if(k==',') breakpoint=break_pc+1;
+        if(k=='.') breakpoint=0;
+        if(k=='x') run(break_pc);
+        if(k==' ') {
+          j=breakpoint;
+          breakpoint=break_pc+2;
+          i=mem[break_pc];
+          if(i==0x80 || i==0xC0) {
+            breakpoint=break_pc+3;
+          } else if(i==0xA0 || i==0xE0) {
+            breakpoint=break_pc+4;
+          } else if((i&0x1F)==0x0C || (i&0x1F)==0x0D || (i&0x1F)==0x0E) {
+            if((i&0x1F)==0x0D) {
+              i&=0x60;
+              if(i==0x00 && ds.p>1 && !ds.d[ds.p-2]) goto no_jump;
+              if(i==0x20 && ds.p>2 && !ds.d[ds.p-3]) goto no_jump;
+              if(i==0x40 && rs.p>1 && !rs.d[rs.p-2]) goto no_jump;
+              if(i==0x60 && rs.p>2 && !rs.d[rs.p-3]) goto no_jump;
+            }
+            i&=0x60;
+            if(i==0x00 && ds.p) breakpoint=break_pc+((Sint8)ds.d[ds.p-1])+2;
+            else if(i==0x20 && ds.p>1) breakpoint=GET16(ds.d+ds.p-2)+1;
+            else if(i==0x40 && rs.p) breakpoint=break_pc+((Sint8)rs.d[rs.p-1])+2;
+            else if(i==0x60 && rs.p>1) breakpoint=GET16(rs.d+rs.p-2)+1;
+            else goto no_run;
+          } else if(i) {
+            no_jump:
+            breakpoint=break_pc+2;
+          } else {
+            goto no_run;
+          }
+          run(break_pc);
+          no_run:
+          breakpoint=j;
+          break;
+        }
+        if(k==13) {
+          paused=debugger=0;
+          run(break_pc);
+          return;
+        }
         break;
     }
   }
@@ -1171,14 +1252,14 @@ static int run_screen(void) {
         } else if(i=e.key.keysym.unicode) {
           device[8].d[3]=i;
           run(GET16(device[8].d));
-          device[8].d[3]=0;
+          if(!debugger) device[8].d[3]=0; else debug_op=8;
         }
         break;
       scroll:
         if(paused || !i) break;
         PUT16(device[9].d+12,i);
         run(GET16(device[9].d));
-        PUT16(device[9].d+12,0);
+        if(!debugger) PUT16(device[9].d+12,0); else debug_op=9;
         break;
       case SDL_KEYUP:
         if(paused) break;

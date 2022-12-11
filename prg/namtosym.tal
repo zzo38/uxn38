@@ -1,0 +1,55 @@
+\\ Program to convert symbol file from the unofficial format to the
+\\ official format. This file is public domain.
+
+%_error { LIT2r :error JSR2r }
+
+|0100
+
+  \\ Read input file name
+  LIT2r 0000 [; #10 DEO2 BRK ]@
+  #12 DEI
+  DUP #0a EQU [, JCN STHrk STZ INCr BRK ]@
+  STZrk POPr DUPr
+  STH2rk #a8 DEO
+
+  \\ Read output file name
+  [; #10 DEO2 BRK ]@
+  #12 DEI
+  DUP #0a EQU [, JCN STHrk STZ INCr BRK ]@
+  STZr #0000 #b8 DEO
+
+@loop
+
+  \\ Address
+  #ac DEI
+  #a3 DEI [, JCN #010f DEO ]@
+  LIT "| EQU [, JCN _error "Expected 20 "| 0a ]@
+  ,rhex JSR ,rhex JSR #00 STZ2
+  #0002 #ba DEO2
+  #0000 #be DEO2
+
+  \\ Name
+  #ac DEI #20 EQU [, JCN _error "Expected 20 "space 0a ]@
+  #ac DEI "@ EQU [, JCN _error "Expected 20 "@ 0a ]@
+  LIT2r 00ff
+  [@ #ac DEI DUP INCr STHrk STZ #0a EOR ], JCN
+  STH2rk STZr INC #ba DEO2 #0000 #be DEO2
+
+  \\ Next record
+  ;loop JMP2
+
+@rhex ( -- number )
+  ,rhex1 JSR #40 SFT ,rhex1 JSR ORA JMP2r
+
+@error
+  #0001 SUB2 [@ INC2 LDAk DUP #19 DEO #0a EOR ], JCN
+  #010f DEO
+
+@rhex1 ( -- number )
+  #ac DEI
+  DUP #30 LTH ,&bad JCN
+  DUP #39 GTH [, JCN #30 SUB JMP2r ]@
+  DUP #61 LTH ,&bad JCN
+  DUP #66 GTH [, JCN #57 SUB JMP2r ]@
+  &bad _error "Expected 20 "hex 20 "digit 0a
+

@@ -111,6 +111,12 @@ The following nonstandard tokens are available:
  about special calculations. These are executed immediately at compile
  time, before the compiled program is written to the output file.
 
+ \- or \= followed by eight more characters and optionally ; will make
+ a graphical tile; you should have eight such commands per tile, and
+ a semicolon at the end of the last one. Use \- for 1bpp tiles and \=
+ for 2bpp tiles. The colour codes are . or 0 for the background colour,
+ and numbers 1 2 3 for the other colours.
+
  [@ makes a anonymous label; the matching ] command will reference the
  same anonymous label as this one. (Nesting is allowed.)
 

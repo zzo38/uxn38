@@ -328,6 +328,34 @@ static int special_calc(const char*w) {
   return 1;
 }
 
+static int make_tile(int h,const char*w) {
+  int i,c,v0,v1;
+  v0=v1=0;
+  for(i=0;i<8;i++) {
+    switch(w[i]) {
+      case '0': case '.': c=0; break;
+      case '1': case '#': c=1; break;
+      case '2': case 'X': c=2; break;
+      case '3': case '*': c=3; break;
+      default: return 0;
+    }
+    if(c>1 && !h) return 0;
+    if(c&1) v0|=0x80>>i;
+    if(c&2) v1|=0x80>>i;
+  }
+  if(p.ptr>0xFFF7) return error("Writing after the end of RAM","");
+  p.data[p.ptr]=v0;
+  if(h) p.data[p.ptr+8]=v1;
+  p.ptr++;
+  if(w[8]==';') {
+    if(h) p.ptr+=8;
+  } else if(w[8]) {
+    return 0;
+  }
+  if(p.length<p.ptr) p.length=p.ptr;
+  return 1;
+}
+
 static int
 parse(char *w, FILE *f)
 {
@@ -440,6 +468,7 @@ parse(char *w, FILE *f)
 		    p.ptr=i;
 		    break;
 		  case '_': if(!special_calc(w+2)) return error("Special calculation error",w); break;
+		  case '-': case '=': if(!make_tile(w[1]=='=',w+2)) return error("Tile error",w); break;
 		  default: return error("Invalid special",w);
 		}
 		break;

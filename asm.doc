@@ -127,7 +127,7 @@ The following nonstandard tokens are available:
  defined by the matching ]@ command.
 
  ], ]. ]; ]: will act like a , . ; : referencing the anonymous label
- defined by the matching ]@ command.
+ defined by the matching [@ command.
 
  ]\ acts like \: for the matching [@ command.
 

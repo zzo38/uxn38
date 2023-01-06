@@ -14,7 +14,7 @@ The high nybble of the port number selects one of the following devices:
   A = File
   B = File
   C = Date/time
-  D = ---
+  D = Implementation dependent
   E = Implementation dependent
   F = Implementation dependent
 
@@ -29,6 +29,7 @@ In the below lists, asterisks indicate 16-bit ports.
 00 = Vector *
 02 = Data stack
 03 = Return stack
+06 = Metadata *
 08 = Colours (red) *
 0A = Colours (green) *
 0C = Colours (blue) *

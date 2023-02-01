@@ -27,8 +27,8 @@ In the below lists, asterisks indicate 16-bit ports.
 === System ===
 
 00 = Vector *
-02 = Data stack
-03 = Return stack
+02 = Expansion *
+04 = Title *
 06 = Metadata *
 08 = Colours (red) *
 0A = Colours (green) *
@@ -38,8 +38,13 @@ In the below lists, asterisks indicate 16-bit ports.
 
 Some implementations call the system vector if an error occurs.
 
-The data stack and return stack ports have a different meaning in different
-implementations, and probably should not be used by most programs.
+Writing an address to the expansion port will execute an expansion
+operation, which is a record stored at that address; the first byte of
+that data is the operation code, and the rest are the arguments. See the
+below list of expansion operations.
+
+The title port points to a null-terminated ASCII string which may be used
+as the window title (if supported by the emulator).
 
 The colours control the colours of the display, where the high nybble of
 each controls the value for colour index 0, and the low nybble of each
@@ -48,6 +53,11 @@ controls the value for colour index 3.
 Writing nonzero to the debug port will display some debug info.
 
 Writing nonzero to the quit port terminates the program.
+
+In previous versions of this specification, port 02 is the data stack
+port and port 03 is the return stack port. The data stack and return stack
+ports have a different meaning in different implementations, and probably
+should not be used by most programs.
 
 
 === Standard I/O ===
@@ -159,6 +169,9 @@ design is not very good in my opinion).
 80 = Vector *
 82 = Joypad
 83 = Key
+85 = Player 2
+86 = Player 3
+87 = Player 4
 
 The vector is called if a key is pushed, or if any button on the joypad is
 pushed or released.
@@ -254,4 +267,10 @@ CA = Daylight saving time
 
 Some programs use this device to seed a random number generator, and
 will not work correctly if these values are all zero.
+
+
+=== Expansion ===
+
+01 length* src_page* src_addr* dst_page* dst_addr*
+  Allows accessing expanded memory.
 

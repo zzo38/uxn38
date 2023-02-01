@@ -1,9 +1,6 @@
 
 === Command-line switches ===
 
--B
-  Bicycle mode; affects the meaning of some ports of the system device.
-
 -D
   Use double buffering for the display.
 

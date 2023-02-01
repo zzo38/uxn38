@@ -220,7 +220,6 @@ static volatile Uint8 timer_expired=0;
 static SDL_Surface*screen;
 static Uint8 layers;
 static Uint8 palet=7;
-static Uint8 bicycle=0;
 
 static Sint32*audio_option;
 static SDL_AudioSpec audiospec;
@@ -340,27 +339,9 @@ static void run(Uint16 pc) {
     break_pc=pc-1;
   }
   fflush(stdout);
-  if(bicycle) {
-    if(k=device[0].d[2]) {
-      memcpy(mem+(k<<8),ds.d,254);
-      mem[(k<<8)+0xFF]=ds.p;
-    }
-    if(k=device[0].d[3]) {
-      memcpy(mem+(k<<8),rs.d,254);
-      mem[(k<<8)+0xFF]=rs.p;
-    }
-  }
   return;
   error:
-  if(bicycle && (device[0].d[0] || device[0].d[1])) {
-    if(device[0].d[2]) mem[(device[0].d[2]<<8)+0xFE]=v; else fprintf(stderr,"Uxn error %d at 0x%04X\n",v,pc);
-    pc=GET16(device[0].d);
-    PUT16(device[0].d,0);
-    ds.p=rs.p=0;
-    goto start;
-  } else {
-    uxnerr(v,pc);
-  }
+  uxnerr(v,pc);
 }
 
 static void load_rom(void) {
@@ -375,39 +356,27 @@ static void load_rom(void) {
 static Uint8 default_in(Device*misc1,Uint8 misc2) { return misc1->d[misc2&15]; }
 static void default_out(Device*misc1,Uint8 misc2) {}
 
-static Uint8 system_in(Device*dev,Uint8 id) {
-  switch(id) {
-    case 2: return ds.p;
-    case 3: return rs.p;
-    default: return dev->d[id];
+static void expansion_command(Uint16 addr) {
+  Uint32 src,dst;
+  Uint16 len;
+  switch(mem[addr]) {
+    case 0x01:
+      len=GET16(mem+addr+1);
+      src=(GET16(mem+addr+3)<<8L)|(GET16(mem+addr+5));
+      dst=(GET16(mem+addr+7)<<8L)|(GET16(mem+addr+9));
+      if(src+len<=MEMSIZE && dst+len<=MEMSIZE) {
+        memmove(mem+dst,mem+src,len);
+      } else {
+        if(use_debug) fprintf(stderr,"! Access expanded memory out of range\n");
+      }
+      break;
   }
 }
 
 static void system_out(Device*dev,Uint8 id) {
   switch(id) {
-    case 2:
-      if(bicycle) {
-        if(dev->d[2]) {
-          memcpy(ds.d,mem+(dev->d[2]<<8),256);
-          ds.p=mem[(dev->d[2]<<8)+0xFF];
-        } else {
-          ds.p=0;
-        }
-      } else {
-        ds.p=dev->d[2];
-      }
-      break;
     case 3:
-      if(bicycle) {
-        if(dev->d[3]) {
-          memcpy(ds.d,mem+(dev->d[3]<<8),256);
-          rs.p=mem[(dev->d[3]<<8)+0xFF];
-        } else {
-          rs.p=0;
-        }
-      } else {
-        rs.p=dev->d[3];
-      }
+      expansion_command(GET16(dev->d+2));
       break;
     case 8 ... 13:
       colors[070].r=colors[074].r=(dev->d[8]>>4)*0x11;
@@ -1340,13 +1309,11 @@ int main(int argc,char**argv) {
     device[i].in=default_in;
     device[i].out=default_out;
   }
-  device[0].in=system_in;
   device[0].out=system_out;
   device[10].aux=&uxnfile0;
   device[11].aux=&uxnfile1;
   device[12].in=datetime_in;
-  while((i=getopt(argc,argv,"+ABDFNQST:YZa:dh:ijnp:qs:t:w:xyz:"))>0) switch(i) {
-    case 'B': bicycle=1; device[0].in=default_in; break;
+  while((i=getopt(argc,argv,"+ADFNQST:YZa:dh:ijnp:qs:t:w:xyz:"))>0) switch(i) {
     case 'D': scrflags|=SDL_DOUBLEBUF; break;
     case 'F': scrflags|=SDL_FULLSCREEN; break;
     case 'N': scrflags|=SDL_NOFRAME; break;

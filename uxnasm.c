@@ -6,7 +6,7 @@ exit
 #include <stdio.h>
 
 /*
-Copyright (c) 2021 Devine Lu Linvega
+Copyright (c) 2021-2023 Devine Lu Linvega, Andrew Alderwick
 
 Permission to use, copy, modify, and distribute this software for any
 purpose with or without fee is hereby granted, provided that the above
@@ -445,6 +445,12 @@ parse(char *w, FILE *f)
 		while((c = w[++i]))
 			if(!writebyte(c)) return 0;
 		break;
+	case '?': /* JCI */
+		makereference(p.scope, w, p.ptr + 1);
+		return writebyte(0x20) && writeshort(0xffff, 0);
+	case '!': /* JMI */
+		makereference(p.scope, w, p.ptr + 1);
+		return writebyte(0x40) && writeshort(0xffff, 0);
 	case '\\': /* specials */
 		switch(w[1]) {
 		  case '\\': line_comment=1; break;
@@ -475,7 +481,7 @@ parse(char *w, FILE *f)
 	case '[':
 	case ']':
 		if(slen(w) == 1) break;
-		if((w[1]=='.' || w[1]==',' || w[1]==':' || w[1]==';' || w[1]=='@' || w[1]=='\\') && !w[2]) {
+		if((w[1]=='.' || w[1]==',' || w[1]==':' || w[1]==';' || w[1]=='@' || w[1]=='\\' || w[1]=='?' || w[1]=='!') && !w[2]) {
 		  if(*w=='[') {
 		    if(bsptr==256) return error("Stack overflow",w);
 		    bstack[bsptr++]=i=bcnt++;
@@ -512,8 +518,13 @@ parse(char *w, FILE *f)
 					return 0;
 			line_comment=0;
 			return 1;
-		} else
-			return error("Unknown token", w);
+		} else {
+			*word='!';
+			scpy(w,word+1,62);
+			makereference(p.scope, word, p.ptr + 1);
+			return writebyte(0x60) && writeshort(0xffff, 0);
+			// return error("Unknown token", w);
+		}
 	}
 	return 1;
 }
@@ -522,7 +533,7 @@ static int
 resolve(void)
 {
 	Label *l;
-	int i;
+	int i,a;
 	for(i = 0; i < p.rlen; i++) {
 		Reference *r = &p.refs[i];
 		switch(r->rune) {
@@ -566,6 +577,14 @@ resolve(void)
 				return error("Unknown absolute reference", r->name);
 			p.data[r->addr + 0] = l->addr >> 0x8;
 			p.data[r->addr + 1] = l->addr & 0xff;
+			l->refs++;
+			break;
+		case '!': case '?':
+			if(!(l = findlabel(r->name)))
+				return error("Unknown instant jump reference", r->name);
+			a = l->addr - r->addr - 2;
+			p.data[r->addr] = a >> 0x8;
+			p.data[r->addr + 1] = a & 0xff;
 			l->refs++;
 			break;
 		default:

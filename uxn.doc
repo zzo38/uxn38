@@ -118,7 +118,21 @@ but if 8-bits then it is a signed relative address.
   This instruction must have the high (keep) bit set. It will push a
   following one-byte or two-byte number to the stack, which are skipped.
 
-Instructions 0x20, 0x40, and 0x60 have undefined behaviour.
+A few instructions must have the exact opcode number and do not use the mode
+bits in the usual way. With the exception of BRK, a 16-bit relative address
+is read and skipped past. This relative address is relative to the PC
+address immediately after, the two bytes giving the address, modulo 65536.
+
+00 BRK ( -- )
+  Stops execution. Execution will continue when a vector is called.
+20 JCI ( cond8 -- )
+  If the value received from the stack is nonzero, jump to that relative
+  address, otherwise continue from here.
+40 JMI ( -- )
+  Unconditionally jump to a relative address.
+60 JSI ( -- <old_addr> )
+  Unconditionally jump to a relative address, but also push the return
+  address to the return stack.
 
 
 === Execution ===
@@ -132,7 +146,5 @@ vector is zero, then that event is ignored.) Events will never interrupt
 the program; if it is already running then it will wait until BRK before
 the next event is processed.
 
-
 Stacks and memory are retained between events.
-
 

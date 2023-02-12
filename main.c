@@ -271,8 +271,7 @@ static void run(Uint16 pc) {
     if(pc==breakpoint && use_screen) goto stop;
     s=(v&0x40?&rs:&ds);
     k=s->p;
-    switch(v&0x1F) {
-      case 0x00: Push8(mem[pc++]); if(v&0x20) Push8(mem[pc++]); break;
+    switch(v&0x1F?:v) {
       case 0x01: Pop(x); Push(x+1); break;
       case 0x02: Pop(x); break;
       case 0x03: Pop(x); Pop(y); Push(x); break;
@@ -322,6 +321,11 @@ static void run(Uint16 pc) {
       case 0x1D: Pop(x); Pop(y); Push(y|x); break;
       case 0x1E: Pop(x); Pop(y); Push(y^x); break;
       case 0x1F: Pop8(x); Pop(y); z=x>>4; x&=15; Push((y>>x)<<z); break;
+      case 0x20: Pop8(x); pc+=x?GET16(mem+pc)+2:2; break;
+      case 0x40: pc+=GET16(mem+pc)+2; break;
+      case 0x60: Push16(pc+2); pc+=GET16(mem+pc)+2; break;
+      case 0x80: case 0xC0: Push8(mem[pc++]); break;
+      case 0xA0: case 0xE0: Push8(mem[pc++]); Push8(mem[pc++]); break;
     }
     continue;
     stash:

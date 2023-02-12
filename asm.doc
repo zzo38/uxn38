@@ -78,6 +78,10 @@ The following standard tokens are available:
 
  _ and a name is like , but without the LIT opcode.
 
+ ? and a name will make a JCI instruction jumping to that label.
+
+ ! and a name will make a JMI instruction jumping to that label.
+
  " and any characters (other than whitespaces) will emit that sequence of
  characters without any opcodes or delimiters. (If you need spaces, then
  you must use separate tokens such as 20 for spaces.)
@@ -85,7 +89,10 @@ The following standard tokens are available:
  An instruction opcode consists of three uppercase letters, optionally
  followed by any combination of instruction flags which can be "2" for
  16-bit operands, "r" to work with the other stack, and/or "k" to keep
- the input operands in the stack.
+ the input operands in the stack. (You cannot code the JCI, JMI, and JSI
+ instructions in this way, although BRK can be coded in this way.)
+
+ A name by itself to make a JSI instruction.
 
 The following nonstandard tokens are available:
 
@@ -123,11 +130,11 @@ The following nonstandard tokens are available:
  ]@ will make a anonymous label which the matching [ before it will
  reference it.
 
- [, [. [; [: will act like a , . ; : referencing the anonymous label
- defined by the matching ]@ command.
+ [, [. [; [: [? [! will act like a , . ; : ? ! referencing the anonymous
+ label defined by the matching ]@ command.
 
- ], ]. ]; ]: will act like a , . ; : referencing the anonymous label
- defined by the matching [@ command.
+ ], ]. ]; ]: ]? ]! will act like a , . ; : ? ! referencing the anonymous
+ label defined by the matching [@ command.
 
  ]\ acts like \: for the matching [@ command.
 

@@ -14,7 +14,7 @@
   LITr 00
   [@
     #ac DEI
-    #a3 DEI [, JCN #010f DEO ]@
+    #a3 DEI [, JCN #800f DEO ]@
     DUP #00 EQU ,end-name JCN
     DUP #18 DEO
     STHrk STZ INCr

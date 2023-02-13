@@ -22,7 +22,7 @@
 
   \\ Address
   #ac DEI
-  #a3 DEI [, JCN #010f DEO ]@
+  #a3 DEI [, JCN #800f DEO ]@
   LIT "| EQU [, JCN _error "Expected 20 "| 0a ]@
   ,rhex JSR ,rhex JSR #00 STZ2
   #0002 #ba DEO2
@@ -43,7 +43,7 @@
 
 @error
   #0001 SUB2 [@ INC2 LDAk DUP #19 DEO #0a EOR ], JCN
-  #010f DEO
+  #810f DEO
 
 @rhex1 ( -- number )
   #ac DEI

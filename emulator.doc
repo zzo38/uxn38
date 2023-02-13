@@ -69,7 +69,8 @@
   Set default screen width.
 
 -x
-  Enable extension device (only built-in extensions).
+  Enable extension device (only built-in extensions). (This feature is
+  deprecated; see varvara.doc and the mailing list.)
 
 -y
   Enable read-only file system access.
@@ -152,6 +153,8 @@ are being used, then this number may be set higher than 273.
 
 === Extension device ===
 
+(This section is deprecated; see varvara.doc and the mailing list.)
+
 Device fifteen is the extension device, which is defined as:
   f0 = vector *
   f1
@@ -209,6 +212,8 @@ memory; some might be able to optionally use it.)
 
 
 === Extended file device ===
+
+(This section may be deprecated in future.)
 
 If the -x switch is used, then the delete and append ports of the file
 device have a different meaning than usual.

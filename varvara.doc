@@ -50,14 +50,19 @@ The colours control the colours of the display, where the high nybble of
 each controls the value for colour index 0, and the low nybble of each
 controls the value for colour index 3.
 
-Writing nonzero to the debug port will display some debug info.
+Writing nonzero to the debug port will display some debug info or break
+into the debugger; the exact meaning is implementation-dependent, but it
+is used for debugging functions.
 
-Writing nonzero to the quit port terminates the program.
+Writing nonzero to the quit port terminates the program; the low seven bits
+of the number written is the exit code (if exit code is meaningful for the
+operating system that it is running on) (writing 0x80 exits with code 0
+which means successful).
 
-In previous versions of this specification, port 02 is the data stack
+(In previous versions of this specification, port 02 is the data stack
 port and port 03 is the return stack port. The data stack and return stack
 ports have a different meaning in different implementations, and probably
-should not be used by most programs.
+should not be used by most programs.)
 
 
 === Standard I/O ===

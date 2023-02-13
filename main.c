@@ -401,7 +401,7 @@ static void system_out(Device*dev,Uint8 id) {
       }
       break;
     case 14: if(dev->d[14] && use_debug) debug(dev->d[14]); break;
-    case 15: if(dev->d[15]) exit(0); break;
+    case 15: if(dev->d[15]) exit(dev->d[15]&0x7F); break;
   }
 }
 

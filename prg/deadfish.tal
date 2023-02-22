@@ -1,0 +1,37 @@
+\\ Deadfish in Uxn
+\\ (use in non-GUI mode)
+
+|0100
+  #0000 STH2k
+  [; #10 DEO2 BRK ]@
+
+\\ Replace with 0
+  DUP2 #0100 NEQ2
+  [? POP2 STH2rk ]@
+
+\\ Check input
+  #12 DEI
+  DUP LIT "i EQU ,i JCN
+  DUP LIT "d EQU ,d JCN
+  DUP LIT "s EQU ,s JCN
+  LIT "o EQU ,o JCN BRK
+
+@i
+  POP INC2 BRK
+
+@d
+  POP ORAk STHrk NEQk ROT POP SUB2 BRK
+
+@s
+  POP DUP2 MUL2 BRK
+
+@o
+  DUP2
+  [@
+    #000a DIV2k STH2k MUL2 SUB2
+    STH2 SWP2r STH2r
+    NIPr LITr 30 ADDr
+  ORAk ]?
+  POP2
+  [@ LITr 18 DEOr STHrk ]?
+  #0a18 DEO BRK

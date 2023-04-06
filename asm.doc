@@ -39,12 +39,14 @@ The following standard tokens are available:
  The name of a previously defined macro without % in front will call that
  macro, as though its definition is substituted in its place.
 
- | and a number will set the current address to that number. Any address
- is possible, but you cannot assemble anything in the zero page nor can
- anything be assembled out of order, although you can skip any space.
+ | and a number or label name will set the current address to that number
+ (or to the address of that label). Any address is possible, but you cannot
+ assemble anything in the zero page nor can anything be assembled out of
+ order, although you can skip any space.
 
- $ and a number will advance the address by that number. (The padding will
- be all zeros if not filled in.)
+ $ and a number or label name will advance the address by that number (or
+ by the address of that label). (The padding will  be all zeros if not
+ filled in.)
 
  @ and a name will make a label with that name. If the label name starts
  with a uppercase letter, then warnings about that label being unused are

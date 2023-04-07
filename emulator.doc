@@ -69,8 +69,7 @@
   Set default screen width.
 
 -x
-  Enable extension device (only built-in extensions). (This feature is
-  deprecated; see varvara.doc and the mailing list.)
+  Enable nonstandard features.
 
 -y
   Enable read-only file system access.
@@ -151,138 +150,52 @@ are being used, then this number may be set higher than 273.
 (Currently there is not the setting of interpolation, filter, etc.)
 
 
-=== Extension device ===
+=== Nonstandard features ===
 
-(This section is deprecated; see varvara.doc and the mailing list.)
+The -x switch enables the following nonstandard features, which include
+some nonstandard expansion commands and nonstandard ports. They should not
+be used in portable programs until they become standardized, though (you
+can discuss in the mailing list of Uxn; changes may also be made in future,
+possibly as a result of the discussions).
 
-Device fifteen is the extension device, which is defined as:
-  f0 = vector *
-  f1
-  f2 = conventional memory transfer base *
-  f3
-  f4 = expanded memory transfer base *
-  f5
-  f6 = transfer length *
-  f7
-  f8 = command code / expanded memory pages
-  f9 = device version / status
-  fa = device seven UUID address *
-  fb
-  fc = device thirteen UUID address *
-  fd
-  fe = device fourteen UUID address *
-  ff
+If any such features listed below become standardized in future, then their
+documentation will be moved to the varvara.doc file, and the -x switch will
+no longer be required in order to use them.
 
-(If the program file is too big to fit into conventional memory, then as
-much as will fit of the rest will be loaded into expanded memory.)
+The list of expansion commands below uses > for output parameters (from the
+emulator to the program), ? for parameters that may be input and/or output,
+* for 16-bit values, and % for values of lengths other than 8-bits or
+16-bits or if they are of a variable length.
 
-Reading the command code port will be the number of expanded memory pages
-(from 0 to 16). Writing the command code will execute the command, where
-the high nybble specifies which command to do and the low nybble is the
-parameter of that command. The command codes are:
+02 >pages*
+  Tells number of expanded memory pages. (This is the maximum valid value
+  for src_page and dst_page in expanded memory operations.)
 
-* 0 = Copy conventional memory to expanded memory. The parameter is the
-zero-based page number.
+03 device_id uuid% >version ?extra%
+  Loads a nonstandard device. The device ID is the starting port number to
+  use, which must be nonzero and must be a multiple of sixteen; some
+  implementations may impose further restrictions. The UUID is sixteen
+  bytes long. The version is zero if not implemented or nonzero if it is
+  implemented (the specific value is defined by the specification of that
+  extension). The extra data depends on the extension, and may be unused
+  (if it is unknown or unused, then the emulator MUST ignore it and not
+  make changes to that data).
 
-* 1 = Copy expanded memory to conventional memory. The parameter is the
-zero-based page number.
+20 flag
+  Clear screen. If flag bit0 is set, do not clear the background layer. If
+  flag bit1 is set, do not clear the foreground layer. Other bits are
+  reserved and must be clear.
 
-* 2 = Clear the screen. If bit0 is set then clear the background layer,
-and if bit1 is set then clear the foreground layer (set both bits to clear
-both layers).
+Nonstandard ports of devices are:
 
-Writing to the UUID address ports will read sixteen bytes at that address
-and then will set the device version field to the version number, which
-can be zero if it is not implemented, an odd number for an unstable
-implementation, or an even number for a stable implementation. (The memory
-that it points to can be reused afterward with no problem.)
-
-The vector is called after passing command-line arguments, but before any
-other events occur. If accepting input from stdin, then it will also be
-called after all input from stdin has been read.
-
-The -x switch also changes the meaning of the delete and append ports of
-the file device. See below about extended file device.
-
-(Note: Using this feature will make the program not portable to other
-implementations, and should be avoided if possible. However, it is
-available if its functions (e.g. expanded memory) are needed in your
-program for any reason. Most programs probably will not need expanded
-memory; some might be able to optionally use it.)
-
-
-=== Extended file device ===
-
-(This section may be deprecated in future.)
-
-If the -x switch is used, then the delete and append ports of the file
-device have a different meaning than usual.
-
-N.B. Use of these extensions in an implementation which does not support
-them may cause files to be inadvertently deleted or corrupted. (This
-implementation will ignore the delete port entirely if the -x switch is
-not specified.) Furthermore, they may be changed in future; please make
-a discussion if you have any intention to use these extensions, or even
-to use the delete/append ports without these extensions. There are some
-problems with the design of the file device, so I would want to suggest
-these changes in order to make an improvement. Unfortunately, it is not
-as simple as other devices, but it may be necessary if file handling is
-to be working properly.
-
-The delete port can be given any of the values:
-
-* 0x00 = Does nothing.
-
-* 0x01 = Delete the current file. (Not currently implemented.)
-
-* 0x10 = Close the file.
-
-* 0x11 = Open the file for reading. Success is 1 if opened.
-
-* 0x12 = Open the file for writing. Success is 1 if opened.
-
-* 0x80 to 0x8F = Seek. Bit0 and bit1 specify how much the length field
-should be multiplied by, where 0 means zero, 1 means one, 2 means 64K,
-and 3 is reserved. Bit2 and bit3 indicate where to seek and which way,
-where 0 means forward from the current position, 1 means backward from
-the current position, 2 means forward from the beginning, and 3 means
-backward from the end.
-
-Telling it to open a file will close it first, even if it is already open
-in the correct mode. Also, seeking will not work unless the file is already
-open, so it must first be opened, either by one of the above commands for
-opening a file or by attempting to read from or write to it.
-
-The append port has one of the following values:
-
-* 0 = Files opened for writing are truncated.
-
-* 1 = Files opened for writing will append at the end of the file.
-
-* 2 = Files are opened for both reading and writing. In this case,
-switching from reading to writing or vice-versa will not close and reopen
-the file like it does in other cases. If writing is disabled, then this is
-treated the same as 0.
-
-Any value may be bitwise ORed by sixteen to refuse to open a file for
-writing if the file already exists.
-
-
-=== Extension loading ===
-
-(This section describes a feature which is not implemented yet. Some
-details might be changed before being implemented.)
-
-Some extensions may be implemented internally if that is necessary, but it
-is expected that most extensions might be external, so that it is possible
-to avoid putting too many things into the emulator.
-
-In the specified directory, are files named by the UUID (in lowercase
-hexadecimal with hyphens) followed by ".so". This must export a function
-named "uxn_extension_main", which is called the first time the extension
-is loaded by the device UUID address fields being filled in by the Uxn
-program. This function should return a pointer to the UxnExtension
-structure for this extension, or null if it is somehow not valid. The
-first argument is a pointer to the (binary) UUID, which can be used in
-case the same file implements multiple extensions.
+17
+  Indicates type of input in the low nybble. The high bit is set if it
+  should execute the standard I/O vector for EOF and for the end of
+  command-line arguments (for compatibility, normally it will not do
+  this). The types of input are:
+   0 = Standard input
+   1 = EOF (*)
+   2 = Command-line argument text
+   3 = Delimiter of command-line arguments
+   4 = End of command-line arguments (*)
 

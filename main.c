@@ -360,22 +360,7 @@ static void load_rom(void) {
 static Uint8 default_in(Device*misc1,Uint8 misc2) { return misc1->d[misc2&15]; }
 static void default_out(Device*misc1,Uint8 misc2) {}
 
-static void expansion_command(Uint16 addr) {
-  Uint32 src,dst;
-  Uint16 len;
-  switch(mem[addr]) {
-    case 0x01:
-      len=GET16(mem+addr+1);
-      src=(GET16(mem+addr+3)<<8L)|(GET16(mem+addr+5));
-      dst=(GET16(mem+addr+7)<<8L)|(GET16(mem+addr+9));
-      if(src+len<=MEMSIZE && dst+len<=MEMSIZE) {
-        memmove(mem+dst,mem+src,len);
-      } else {
-        if(use_debug) fprintf(stderr,"! Access expanded memory out of range\n");
-      }
-      break;
-  }
-}
+static void expansion_command(Uint16 addr);
 
 static void system_out(Device*dev,Uint8 id) {
   switch(id) {
@@ -402,45 +387,6 @@ static void system_out(Device*dev,Uint8 id) {
       break;
     case 14: if(dev->d[14] && use_debug) debug(dev->d[14]); break;
     case 15: if(dev->d[15]) exit(dev->d[15]&0x7F); break;
-  }
-}
-
-static Uint8 extension_in(Device*dev,Uint8 id) {
-  switch(id) {
-    case 8: return EXPANDED_MEMORY;
-    default: return dev->d[id];
-  }
-}
-
-static void extension_out(Device*dev,Uint8 id) {
-  Uint16 x,y,len;
-  switch(id) {
-    case 8:
-      switch(dev->d[8]>>4) {
-        case 0:
-          x=GET16(dev->d+2);
-          y=GET16(dev->d+4);
-          len=GET16(dev->d+6);
-          if(x+len>0x10000 || y+len>0x10000 || (dev->d[8]&15)>=EXPANDED_MEMORY) uxnerr(5,x);
-          memcpy(mem+y+((dev->d[8]&15)<<16)+0x10000,mem+x,len);
-          break;
-        case 1:
-          x=GET16(dev->d+2);
-          y=GET16(dev->d+4);
-          len=GET16(dev->d+6);
-          if(x+len>0x10000 || y+len>0x10000 || (dev->d[8]&15)>=EXPANDED_MEMORY) uxnerr(5,x);
-          memcpy(mem+x,mem+y+((dev->d[8]&15)<<16)+0x10000,len);
-          break;
-        case 2:
-          if(!screen) break;
-          if(dev->d[8]&1) memset(bglayer,0,scr_w*scr_h);
-          if(dev->d[8]&2) memset(fglayer,0,scr_w*scr_h);
-          break;
-      }
-      break;
-    case 11: case 13: case 15:
-      dev->d[9]=0;
-      break;
   }
 }
 
@@ -496,19 +442,7 @@ static int files_set(Device*dev,int rw) {
   uf->mode=0;
   dev->d[2]=dev->d[3]=0;
   if(!uf->name[0]) return 0;
-  if(m && !use_extension) m=1;
-  if((m&15)==2 && rw && allow_write) {
-    if(rw==1) m&=15;
-    if(uf->file=fopen(uf->name,m&16?"w+x":"r+")) {
-      uf->mode=4;
-      return 1;
-    } else if(uf->file=fopen(uf->name,m&16?"w+x":"w+")) {
-      uf->mode=4;
-      return 1;
-    } else {
-      warn("Cannot open file '%s' for reading and writing",uf->name);
-    }
-  } else if(rw==1) {
+  if(rw==1) {
     if(uf->dir=opendir(uf->name)) {
       uf->mode=3;
       return 1;
@@ -519,7 +453,7 @@ static int files_set(Device*dev,int rw) {
       warn("Cannot open file '%s' for reading",uf->name);
     }
   } else if(rw==2 && allow_write) {
-    if(uf->file=fopen(uf->name,m==1?"a":m==17?"ax":m==16?"wx":"w")) {
+    if(uf->file=fopen(uf->name,m?"a":"w")) {
       uf->mode=2;
       return 1;
     } else {
@@ -541,19 +475,6 @@ static void files_out(Device*dev,Uint8 id) {
       if(!uf->name[0]) break;
       y=files_stat(AT_FDCWD,uf->name,len,mem+addr);
       if(y<=len) PUT16(dev->d+2,y);
-      break;
-    case 6:
-      if(!use_extension) break;
-      dev->d[2]=dev->d[3]=0;
-      switch(dev->d[6]) {
-        case 0x10 ... 0x12: // Close/open
-          if(dev->d[6]==0x12 && !allow_write) goto disallow;
-          dev->d[3]=files_set(dev,dev->d[6]&0x0F);
-          break;
-        case 0x80 ... 0x8F: // Seek
-          files_seek(uf,dev->d[6]&0x0F,len);
-          break;
-      }
       break;
     case 9:
       addr=GET16(dev->d+8);
@@ -889,6 +810,37 @@ static void run_audio(void) {
     if(c==2) {
       d=(o1*vol)>>12; putchar(d>>8); putchar(d);
     }
+  }
+}
+
+static void expansion_command(Uint16 addr) {
+  Uint32 src,dst;
+  Uint16 len;
+  switch(mem[addr]) {
+    case 0x01:
+      len=GET16(mem+addr+1);
+      src=(GET16(mem+addr+3)<<8L)|(GET16(mem+addr+5));
+      dst=(GET16(mem+addr+7)<<8L)|(GET16(mem+addr+9));
+      if(src+len<=MEMSIZE && dst+len<=MEMSIZE) {
+        memmove(mem+dst,mem+src,len);
+      } else {
+        if(use_debug) fprintf(stderr,"! Access expanded memory out of range\n");
+      }
+      break;
+    case 0x02:
+      if(!use_extension) break;
+      PUT16(mem+addr+1,EXPANDED_MEMORY);
+      break;
+    case 0x03:
+      if(!use_extension) break;
+      mem[addr+18]=0;
+      break;
+    case 0x20:
+      if(!use_extension || !use_screen) break;
+      if(size_changed || !bglayer) set_screen_mode(scr_w,scr_h);
+      if(!(mem[addr+1]&0x01)) memset(bglayer,0,scr_w*scr_h);
+      if(!(mem[addr+1]&0x02)) memset(bglayer+scr_w*scr_h,0,scr_w*scr_h);
+      break;
   }
 }
 
@@ -1337,7 +1289,7 @@ int main(int argc,char**argv) {
     case 's': scroll_size=strtol(optarg,0,10); break;
     case 't': timer_rate=strtol(optarg,0,10); break;
     case 'w': default_width=strtol(optarg,0,10); break;
-    case 'x': use_extension=1; device[15].in=extension_in; device[15].out=extension_out; break;
+    case 'x': use_extension=1; break;
     case 'y': allow_write=0; device[10].out=device[11].out=files_out; device[10].in=device[11].in=files_in; break;
     case 'z': zoom=strtol(optarg,0,10); break;
     default: return 1;
@@ -1366,14 +1318,19 @@ int main(int argc,char**argv) {
   ds.p=rs.p=0;
   run(0x0100);
   if(device[1].d[0] || device[1].d[1]) for(i=optind+1;i<argc;i++) {
+    if(use_extension) device[1].d[7]=(device[1].d[7]&0xF0)|0x02;
     for(j=0;argv[i][j];j++) {
       device[1].d[2]=argv[i][j];
       run(GET16(device[1].d));
     }
     device[1].d[2]='\n';
+    if(use_extension) device[1].d[7]=(device[1].d[7]&0xF0)|0x03;
     run(GET16(device[1].d));
   }
-  if(device[15].out==extension_out) run(GET16(device[15].d));
+  if(use_extension && (device[1].d[7]&0x80)) {
+    device[1].d[7]=(device[1].d[7]&0xF0)|0x04;
+    run(GET16(device[1].d));
+  }
   if(use_screen) {
     if(size_changed) set_screen_mode(scr_w,scr_h);
     while(run_screen()) {
@@ -1384,11 +1341,15 @@ int main(int argc,char**argv) {
   } else if(audio_option) {
     run_audio();
   } else {
+    if(use_extension) device[1].d[7]&=0xF0;
     while((device[1].d[0] || device[1].d[1]) && ((i=getchar())>=0)) {
       device[1].d[2]=i;
       run(GET16(device[1].d));
     }
-    if(device[15].out==extension_out) run(GET16(device[15].d));
+    if(use_extension && (device[1].d[7]&0x80)) {
+      device[1].d[7]=(device[1].d[7]&0xF0)|0x01;
+      run(GET16(device[1].d));
+    }
   }
   return 0;
 }

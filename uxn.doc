@@ -134,6 +134,12 @@ address immediately after, the two bytes giving the address, modulo 65536.
   Unconditionally jump to a relative address, but also push the return
   address to the return stack.
 
+(There is some discussion about possibility of changing a few of the
+instructions in future; the changed instructions will be: POPk, POP2k,
+POPrk, POP2rk, NIPk, NIP2k, NIPrk, NIP2rk. So, these instructions should
+not be used at this time in published programs, until this discussion of
+these changes is concluded.)
+
 
 === Execution ===
 

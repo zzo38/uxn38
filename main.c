@@ -629,6 +629,15 @@ static void set_screen_mode(int w,int h) {
   fglayer=bglayer+w*h;
 }
 
+static void screen_fill(Uint8*p,Uint8 v,Uint16 x0,Uint16 y0,Uint16 x1,Uint16 y1) {
+  if(y1>scr_h) y1=scr_h;
+  if(x1>scr_w) x1=scr_w;
+  if(y0>=y1 || x0>=x1) return;
+  p+=y0*scr_w+x0;
+  x1-=x0;
+  while(y0++<y1) memset(p,v,x1),p+=scr_w;
+}
+
 static void draw_sprite(Uint16 x,Uint16 y,Uint16 addr,Uint8 v) {
   Uint8 b=v&0x80;
   Uint8 u;
@@ -671,9 +680,13 @@ static void screen_out(Device*dev,Uint8 id) {
     case 14:
       if(size_changed) set_screen_mode(scr_w,scr_h);
       picture_changed=1;
-      if(x<scr_w && y<scr_h) (z&0x40?fglayer:bglayer)[x+y*scr_w]=z&3;
-      if(dev->d[6]&0x01) PUT16(dev->d+8,x+1);
-      if(dev->d[6]&0x02) PUT16(dev->d+10,y+1);
+      if(z<0x80) {
+        if(x<scr_w && y<scr_h) (z&0x40?fglayer:bglayer)[x+y*scr_w]=z&3;
+        if(dev->d[6]&0x01) PUT16(dev->d+8,x+1);
+        if(dev->d[6]&0x02) PUT16(dev->d+10,y+1);
+      } else {
+        screen_fill(z&0x40?fglayer:bglayer,z&3,dev->d[14]&0x10?0:x,dev->d[14]&0x20?0:y,dev->d[14]&0x10?x:scr_w,dev->d[14]&0x20?y:scr_h);
+      }
       break;
     case 15:
       if(size_changed) set_screen_mode(scr_w,scr_h);

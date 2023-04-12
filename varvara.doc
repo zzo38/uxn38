@@ -110,9 +110,20 @@ The auto port works as follows:
   bit0 = X
 
 Writing to the pixel command port will change the pixel at the specified
-coordinates. The low 2-bits specify what colour to use, and bit6 specifies
-the layer (set for foreground, clear for background). It will automatically
-increment X and/or Y if the corresponding bits of the auto port are set.
+coordinates, and will automatically increment X and/or Y if the
+corresponding bits of the auto port are set. The bits of pixel port are:
+  bit7 = Set for fill mode
+  bit6 = Set for foreground layer, clear for background layer
+  bit5-bit4 = Specify corner for fill mode (unused if not fill mode)
+  bit3-bit2 = Unused (should be clear)
+  bit1-bit0 = Colour
+
+If fill mode is set, then it will fill a part of the screen, in a rectangle
+from the specified X and Y coordinates to one of the corners of the screen.
+In this case, the X and Y are not automatically incremented. The corners of
+the screen are numbered as follows:
+  3 2
+  1 0
 
 Writing to the sprite command port will draw one or more sprites. The bits
 are as follows:

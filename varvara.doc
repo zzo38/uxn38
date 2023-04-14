@@ -266,8 +266,6 @@ directory entries in the same format as above. Only full entries can be
 read; you cannot read partial entries. Only as many full entries as will
 fit in the allowed space will be retrieved.
 
-See also emulator.doc for nonstandard meanings of delete/append ports.
-
 
 === Date/time ===
 

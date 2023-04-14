@@ -52,8 +52,9 @@
   Enable key repeat for joypad emulation.
 
 -n
-  Disable GUI. This switch is required in order to read stdin; without it,
-  stdin cannot be read (although command-line arguments still work).
+  Disable GUI. Either this switch or -I is required in order to read stdin.
+  If neither -n nor -I is specified, then stdin cannot be read (although
+  command-line arguments can still be read).
 
 -p #
   Select the palette. Valid palette numbers are 0 to 7, where 7 is the

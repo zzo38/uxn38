@@ -7,6 +7,9 @@
 -F
   Start in full screen mode.
 
+-I
+  Use a separate thread to read from stdin.
+
 -N
   Tells the window manager to omit the frame.
 

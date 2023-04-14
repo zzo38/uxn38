@@ -203,6 +203,7 @@ static Uint8 use_mouse=1;
 static Uint8 use_debug=0;
 static Uint8 use_utc=0;
 static Uint8 use_extension=0;
+static Uint8 use_thread=0;
 static Uint8 hide_cursor=0;
 static Uint8 allow_write=0;
 static Uint8 joypad_repeat=0;
@@ -220,6 +221,7 @@ static volatile Uint8 timer_expired=0;
 static SDL_Surface*screen;
 static Uint8 layers;
 static Uint8 palet=7;
+static SDL_Thread*in_thread;
 
 static Sint32*audio_option;
 static SDL_AudioSpec audiospec;
@@ -1229,8 +1231,24 @@ static int run_screen(void) {
         device[9].d[6]=k&7;
         run(GET16(device[9].d));
         break;
+      case SDL_USEREVENT+1:
+        if(use_extension) device[1].d[7]&=0xF0;
+        device[1].d[2]=e.user.code;
+        run(GET16(device[1].d));
+        break;
     }
     if(picture_changed) redraw();
+  }
+  return 0;
+}
+
+static int stdin_thread_fn(void*unused) {
+  int c;
+  SDL_Event e;
+  e.type=SDL_USEREVENT+1;
+  while((c=getchar())>=0) {
+    e.user.code=c;
+    SDL_PushEvent(&e);
   }
   return 0;
 }
@@ -1282,9 +1300,10 @@ int main(int argc,char**argv) {
   device[10].aux=&uxnfile0;
   device[11].aux=&uxnfile1;
   device[12].in=datetime_in;
-  while((i=getopt(argc,argv,"+ADFNQST:YZa:dh:ijnp:qs:t:w:xyz:"))>0) switch(i) {
+  while((i=getopt(argc,argv,"+ADFINQST:YZa:dh:ijnp:qs:t:w:xyz:"))>0) switch(i) {
     case 'D': scrflags|=SDL_DOUBLEBUF; break;
     case 'F': scrflags|=SDL_FULLSCREEN; break;
+    case 'I': use_thread=1; break;
     case 'N': scrflags|=SDL_NOFRAME; break;
     case 'Q': use_mouse=0; break;
     case 'S': disallow_size_change=1; break;
@@ -1346,6 +1365,7 @@ int main(int argc,char**argv) {
   }
   if(use_screen) {
     if(size_changed) set_screen_mode(scr_w,scr_h);
+    if(use_thread) in_thread=SDL_CreateThread(stdin_thread_fn,0);
     while(run_screen()) {
       for(i=0;i<15;i++) for(j=0;j<16;j++) device[i].d[j]=0;
       load_rom();

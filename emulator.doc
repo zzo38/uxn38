@@ -10,6 +10,9 @@
 -I
   Use a separate thread to read from stdin.
 
+-J #
+  Set joystick mode. See the below section about joystick for details.
+
 -N
   Tells the window manager to omit the frame.
 
@@ -152,6 +155,41 @@ v = Output volume from 0 to 273. If not all of the four VM audio channels
 are being used, then this number may be set higher than 273.
 
 (Currently there is not the setting of interpolation, filter, etc.)
+
+
+=== Joystick ===
+
+The joystick parameter can be ? to list joysticks, or ? and a number to
+display details about that joystick, or it can be the below specification
+in order to configure joysticks.
+
+The first part is numbers with commas in between, being the joystick ID
+numbers (as shown by the ? list); up to four numbers can be specified. If
+a number is omitted, then that slot is not used.
+
+After the first part is a forward slash, and then the mapping (all
+joysticks must use an identical mapping). Each item is a letter and then
+a number, with no delimiters in between. The letters can be:
+
+A B S T U D L R
+  Specify which joystick button to map to the uxn joypad button;
+  respectively, A, B, SELECT, START, UP, DOWN, LEFT, RIGHT. Only the first
+  128 buttons can be mapped.
+
+X Y x y
+  Specify which axis to use as the X and Y axis. Uppercase letters means
+  that axis is reversed; do not specify both "X" and "x", and do not
+  specify both "Y" and "y".
+
+s
+  Set sensitivity, from 1 to 32767. Higher numbers mean the joystick must
+  be moved more in order to register, while lower numbers means that it
+  does not need to moved much in order to be registered.
+
+H h I i
+  Specify the hat number to use. Different letters correspond to different
+  orientations (specify only up to one of these letters, not all of them).
+  "h" is normal, "H" is reverse, "I" and "i" are sideways.
 
 
 === Nonstandard features ===

@@ -226,6 +226,13 @@ static SDL_Thread*in_thread;
 static Sint32*audio_option;
 static SDL_AudioSpec audiospec;
 
+static Uint8 joy_mask;
+static Uint8 joy_player[4];
+static Uint8 joy_hat,joy_hat_mode;
+static Uint8 joy_axis_x,joy_axis_y,joy_axis_mode;
+static Uint8 joy_button_map[128];
+static Uint16 joy_sensitivity=8192;
+
 static Uint8 debugger=0;
 static Uint16 breakpoint=0;
 static Uint16 break_pc=0x0100;
@@ -1140,6 +1147,14 @@ static void redraw(void) {
   SDL_Flip(screen);
 }
 
+static inline int select_joystick(Uint8 n) {
+  if((joy_mask&1) && n==joy_player[0]) return 2;
+  if((joy_mask&2) && n==joy_player[1]) return 5;
+  if((joy_mask&4) && n==joy_player[2]) return 6;
+  if((joy_mask&8) && n==joy_player[3]) return 7;
+  return 0;
+}
+
 static int run_screen(void) {
   SDL_Event e;
   int i,j,k;
@@ -1236,6 +1251,49 @@ static int run_screen(void) {
         device[1].d[2]=e.user.code;
         run(GET16(device[1].d));
         break;
+      case SDL_JOYAXISMOTION:
+        if(!joy_axis_mode) break;
+        if(j=select_joystick(e.jaxis.which)) {
+          k=device[8].d[j];
+          if(e.jaxis.axis==joy_axis_x) {
+            i=e.jaxis.value*(joy_axis_mode&1?-1:1);
+            k&=0x3F;
+            if(i>=joy_sensitivity) k|=0x80; else if(i<=-joy_sensitivity) k|=0x40;
+          } else if(e.jaxis.axis==joy_axis_y) {
+            i=e.jaxis.value*(joy_axis_mode&2?-1:1);
+            k&=0xCF;
+            if(i>=joy_sensitivity) k|=0x10; else if(i<=-joy_sensitivity) k|=0x20;
+          }
+          trigger:
+          if(k!=device[8].d[j]) {
+            device[8].d[j]=k;
+            if(!paused) run(GET16(device[8].d));
+          }
+        }
+        break;
+      case SDL_JOYBUTTONDOWN:
+      case SDL_JOYBUTTONUP:
+        if(e.jbutton.button&~127) break;
+        if(j=select_joystick(e.jbutton.which)) {
+          k=device[8].d[j];
+          i=joy_button_map[e.jbutton.button];
+          if(e.jbutton.state==SDL_PRESSED) k|=i; else k&=~i;
+          goto trigger;
+        }
+        break;
+      case SDL_JOYHATMOTION:
+        if(!joy_hat_mode) break;
+        if(j=select_joystick(e.jhat.which)) {
+          k=device[8].d[j]&0x0F;
+          // Note that the SDL_HAT_ values are bits counted clockwise from UP.
+          i=(e.jhat.value*0x1111)>>joy_hat_mode;
+          if(i&SDL_HAT_UP) k|=0x10;
+          if(i&SDL_HAT_DOWN) k|=0x20;
+          if(i&SDL_HAT_LEFT) k|=0x40;
+          if(i&SDL_HAT_RIGHT) k|=0x80;
+          goto trigger;
+        }
+        break;
     }
     if(picture_changed) redraw();
   }
@@ -1290,6 +1348,69 @@ static void set_audio(char*s) {
   if(!audio_option['e'-'a']) audio_option['e'-'a']=audio_option['r'-'a']/15;
 }
 
+static void set_joystick(char*s) {
+  int c,i,n;
+  SDL_Joystick*j;
+  if(*s=='?') {
+    if(SDL_Init(SDL_INIT_JOYSTICK|SDL_INIT_NOPARACHUTE)) errx(1,"Cannot initialize SDL: %s",SDL_GetError());
+    atexit(SDL_Quit);
+    if(s[1]) {
+      j=SDL_JoystickOpen(i=strtol(s+1,0,10));
+      if(!j) errx(1,"Cannot open joystick %d",i);
+      printf("Opened Joystick %d\n",i);
+      printf("Name: %s\n",SDL_JoystickName(i));
+      printf("Axes: %d\n",SDL_JoystickNumAxes(j));
+      printf("Buttons: %d\n",SDL_JoystickNumButtons(j));
+      printf("Hats: %d\n",SDL_JoystickNumHats(j));
+      printf("Balls: %d\n",SDL_JoystickNumBalls(j));
+      SDL_JoystickClose(j);
+    } else {
+      n=SDL_NumJoysticks();
+      for(i=0;i<n;i++) printf("%d: %s\n",i,SDL_JoystickName(i));
+    }
+    exit(0);
+    return;
+  }
+  n=0;
+  while(*s) {
+    if(*s>='0' && *s<='9') {
+      if(n&~3) errx(1,"Too many players");
+      joy_player[n]=strtol(s,&s,10);
+      joy_mask|=1<<n;
+    } else if(*s==',') {
+      s++;
+      n++;
+    } else {
+      break;
+    }
+  }
+  if(*s=='/') ++s; else errx(1,"Improper joystick setting");
+  while(*s) {
+    c=*s++;
+    n=strtol(s,&s,10);
+    switch(c) {
+      case 'A': joy_button_map[n&0x7F]|=0x01; break;
+      case 'B': joy_button_map[n&0x7F]|=0x02; break;
+      case 'D': joy_button_map[n&0x7F]|=0x20; break;
+      case 'H': joy_hat=n; joy_hat_mode=6; break;
+      case 'h': joy_hat=n; joy_hat_mode=4; break;
+      case 'I': joy_hat=n; joy_hat_mode=5; break;
+      case 'i': joy_hat=n; joy_hat_mode=7; break;
+      case 'L': joy_button_map[n&0x7F]|=0x40; break;
+      case 'R': joy_button_map[n&0x7F]|=0x80; break;
+      case 'S': joy_button_map[n&0x7F]|=0x04; break;
+      case 'T': joy_button_map[n&0x7F]|=0x08; break;
+      case 'U': joy_button_map[n&0x7F]|=0x10; break;
+      case 'X': joy_axis_x=n; joy_axis_mode|=1; break;
+      case 'Y': joy_axis_y=n; joy_axis_mode|=2; break;
+      case 's': joy_sensitivity=n; break;
+      case 'x': joy_axis_x=n; joy_axis_mode|=4; break;
+      case 'y': joy_axis_y=n; joy_axis_mode|=8; break;
+      default: errx(1,"Improper joystick setting");
+    }
+  }
+}
+
 int main(int argc,char**argv) {
   int i,j;
   for(i=0;i<16;i++) {
@@ -1300,10 +1421,11 @@ int main(int argc,char**argv) {
   device[10].aux=&uxnfile0;
   device[11].aux=&uxnfile1;
   device[12].in=datetime_in;
-  while((i=getopt(argc,argv,"+ADFINQST:YZa:dh:ijnp:qs:t:w:xyz:"))>0) switch(i) {
+  while((i=getopt(argc,argv,"+ADFIJ:NQST:YZa:dh:ijnp:qs:t:w:xyz:"))>0) switch(i) {
     case 'D': scrflags|=SDL_DOUBLEBUF; break;
     case 'F': scrflags|=SDL_FULLSCREEN; break;
     case 'I': use_thread=1; break;
+    case 'J': set_joystick(optarg); break;
     case 'N': scrflags|=SDL_NOFRAME; break;
     case 'Q': use_mouse=0; break;
     case 'S': disallow_size_change=1; break;
@@ -1332,7 +1454,7 @@ int main(int argc,char**argv) {
   if(use_screen) {
     if(zoom<1) errx(1,"Zoom out of range");
     if(default_height<1 || default_width<1) errx(1,"Screen size out of range");
-    if(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER|(audio_option?SDL_INIT_AUDIO:0))) errx(1,"Cannot initialize SDL: %s",SDL_GetError());
+    if(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER|(audio_option?SDL_INIT_AUDIO:0)|(joy_mask?SDL_INIT_JOYSTICK:0))) errx(1,"Cannot initialize SDL: %s",SDL_GetError());
     atexit(SDL_Quit);
     device[2].out=screen_out;
     scr_w=default_width;
@@ -1340,6 +1462,13 @@ int main(int argc,char**argv) {
     PUT16(device[2].d+2,scr_w);
     PUT16(device[2].d+4,scr_h);
     size_changed=1;
+    if(joy_mask) {
+      if((joy_mask&1) && !SDL_JoystickOpen(joy_player[0])) errx(1,"Cannot open joystick for player I");
+      if((joy_mask&2) && !SDL_JoystickOpen(joy_player[1])) errx(1,"Cannot open joystick for player II");
+      if((joy_mask&4) && !SDL_JoystickOpen(joy_player[2])) errx(1,"Cannot open joystick for player III");
+      if((joy_mask&8) && !SDL_JoystickOpen(joy_player[3])) errx(1,"Cannot open joystick for player IV");
+      SDL_JoystickEventState(SDL_ENABLE);
+    }
   }
   if(use_console) device[1].out=console_out;
   if(device[12].d[15]) device[12].d[15]=0; else device[12].in=datetime_in;

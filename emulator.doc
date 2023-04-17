@@ -226,6 +226,7 @@ emulator to the program), ? for parameters that may be input and/or output,
 Nonstandard ports of devices are:
 
 17
-  If the high bit is set, then it will trigger on EOF; the value of input
-  will be zero and the value of this port will be 0x81.
+  If the high bit is set (by the uxn program), then it will trigger on
+  EOF; the value of input will be zero and the value of this port will
+  be 0x80. (The high bit will be preserved by the emulator.)
 

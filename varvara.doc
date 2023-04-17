@@ -80,10 +80,13 @@ sent in this way as though each one is a line of input from stdin
 terminated by a line feed.
 
 On input, the type port is set to the type of input, where:
-  0 = stdin
+  1 = stdin
   2 = command-line argument text
   3 = line break after command-line argument, other than the final one
   4 = line break after the final command-line argument
+
+During the startup (call to 0x0100), the type port will be 1 if there are
+any command-line arguments and 0 if there are no arguments.
 
 Writing to the output and error ports write a byte to stdout or stderr.
 

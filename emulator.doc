@@ -223,11 +223,6 @@ emulator to the program), ? for parameters that may be input and/or output,
   (if it is unknown or unused, then the emulator MUST ignore it and not
   make changes to that data).
 
-20 flag
-  Clear screen. If flag bit0 is set, do not clear the background layer. If
-  flag bit1 is set, do not clear the foreground layer. Other bits are
-  reserved and must be clear.
-
 Nonstandard ports of devices are:
 
 17

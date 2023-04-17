@@ -857,12 +857,6 @@ static void expansion_command(Uint16 addr) {
       if(!use_extension) break;
       mem[addr+18]=0;
       break;
-    case 0x20:
-      if(!use_extension || !use_screen) break;
-      if(size_changed || !bglayer) set_screen_mode(scr_w,scr_h);
-      if(!(mem[addr+1]&0x01)) memset(bglayer,0,scr_w*scr_h);
-      if(!(mem[addr+1]&0x02)) memset(bglayer+scr_w*scr_h,0,scr_w*scr_h);
-      break;
   }
 }
 

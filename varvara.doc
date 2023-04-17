@@ -69,6 +69,7 @@ should not be used by most programs.)
 
 10 = Vector *
 12 = Input
+17 = Type
 18 = Output
 19 = Error
 
@@ -77,6 +78,12 @@ port to the byte read and calls the vector. Immediately after the first
 BRK (and before any other events), any command-line arguments are also
 sent in this way as though each one is a line of input from stdin
 terminated by a line feed.
+
+On input, the type port is set to the type of input, where:
+  0 = stdin
+  2 = command-line argument text
+  3 = line break after command-line argument, other than the final one
+  4 = line break after the final command-line argument
 
 Writing to the output and error ports write a byte to stdout or stderr.
 

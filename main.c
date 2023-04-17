@@ -1473,18 +1473,13 @@ int main(int argc,char**argv) {
   ds.p=rs.p=0;
   run(0x0100);
   if(device[1].d[0] || device[1].d[1]) for(i=optind+1;i<argc;i++) {
-    if(use_extension) device[1].d[7]=(device[1].d[7]&0xF0)|0x02;
     for(j=0;argv[i][j];j++) {
       device[1].d[2]=argv[i][j];
+      device[1].d[7]=(device[1].d[7]&0x80)|0x02;
       run(GET16(device[1].d));
     }
     device[1].d[2]='\n';
-    if(use_extension) device[1].d[7]=(device[1].d[7]&0xF0)|0x03;
-    run(GET16(device[1].d));
-  }
-  if(use_extension && (device[1].d[7]&0x80)) {
-    device[1].d[2]=0;
-    device[1].d[7]=(device[1].d[7]&0xF0)|0x04;
+    device[1].d[7]=(device[1].d[7]&0x80)|(i==argc-1?0x04:0x03);
     run(GET16(device[1].d));
   }
   if(use_screen) {
@@ -1498,14 +1493,14 @@ int main(int argc,char**argv) {
   } else if(audio_option) {
     run_audio();
   } else {
-    if(use_extension) device[1].d[7]&=0xF0;
+    device[1].d[7]&=0x80;
     while((device[1].d[0] || device[1].d[1]) && ((i=getchar())>=0)) {
       device[1].d[2]=i;
       run(GET16(device[1].d));
     }
     if(use_extension && (device[1].d[7]&0x80)) {
       device[1].d[2]=0;
-      device[1].d[7]=(device[1].d[7]&0xF0)|0x01;
+      device[1].d[7]=(device[1].d[7]&0x80)|0x01;
       run(GET16(device[1].d));
     }
   }

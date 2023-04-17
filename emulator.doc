@@ -226,13 +226,6 @@ emulator to the program), ? for parameters that may be input and/or output,
 Nonstandard ports of devices are:
 
 17
-  Indicates type of input in the low nybble. The high bit is set if it
-  should execute the standard I/O vector for EOF and for the end of
-  command-line arguments (for compatibility, normally it will not do
-  this). The types of input are:
-   0 = Standard input
-   1 = EOF (*)
-   2 = Command-line argument text
-   3 = Delimiter of command-line arguments
-   4 = End of command-line arguments (*)
+  If the high bit is set, then it will trigger on EOF; the value of input
+  will be zero and the value of this port will be 0x81.
 

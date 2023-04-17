@@ -1483,6 +1483,7 @@ int main(int argc,char**argv) {
     run(GET16(device[1].d));
   }
   if(use_extension && (device[1].d[7]&0x80)) {
+    device[1].d[2]=0;
     device[1].d[7]=(device[1].d[7]&0xF0)|0x04;
     run(GET16(device[1].d));
   }
@@ -1503,6 +1504,7 @@ int main(int argc,char**argv) {
       run(GET16(device[1].d));
     }
     if(use_extension && (device[1].d[7]&0x80)) {
+      device[1].d[2]=0;
       device[1].d[7]=(device[1].d[7]&0xF0)|0x01;
       run(GET16(device[1].d));
     }

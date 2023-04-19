@@ -841,8 +841,8 @@ static void expansion_command(Uint16 addr) {
   switch(mem[addr]) {
     case 0x01:
       len=GET16(mem+addr+1);
-      src=(GET16(mem+addr+3)<<8L)|(GET16(mem+addr+5));
-      dst=(GET16(mem+addr+7)<<8L)|(GET16(mem+addr+9));
+      src=(GET16(mem+addr+3)<<16L)|(GET16(mem+addr+5));
+      dst=(GET16(mem+addr+7)<<16L)|(GET16(mem+addr+9));
       if(src+len<=MEMSIZE && dst+len<=MEMSIZE) {
         memmove(mem+dst,mem+src,len);
       } else {

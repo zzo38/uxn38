@@ -1,0 +1,20 @@
+\\ Converts TRON-8 or TRON-16BE to TRON-32. (Ignores nulls)
+\\ (This file is public domain.)
+
+|0100
+  ;read/0 #10 DEO2
+  #0000 ( current plane selection )
+@main
+  read
+  DUP #fe EQU ?shift
+  DUP #7f EQU OVR #21 LTH ORA ?control
+  STH DUP2 STHr read write !main
+@shift
+  POP POP2 #ffff
+  [@ POP INC read DUP #fe EQU ]? !main
+@control
+  #0000 ROT OVR SWP write !main
+
+[@ POP @read BRK &0 #12 DEI DUP #00 EQU ]? JMP2r
+@write SWP2 SWP #18 DEO #18 DEO SWP #18 DEO #18 DEO JMP2r
+

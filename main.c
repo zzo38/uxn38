@@ -82,6 +82,7 @@ typedef struct Device {
   Uint8 d[16];
   Uint8(*in)(struct Device*,Uint8);
   void(*out)(struct Device*,Uint8);
+  void(*exp)(struct Device*,Uint16);
   void*aux;
 } Device;
 
@@ -221,7 +222,6 @@ static volatile Uint8 timer_expired=0;
 static SDL_Surface*screen;
 static Uint8 layers;
 static Uint8 palet=7;
-static SDL_Thread*in_thread;
 
 static Sint32*audio_option;
 static SDL_AudioSpec audiospec;
@@ -368,13 +368,14 @@ static void load_rom(void) {
 
 static Uint8 default_in(Device*misc1,Uint8 misc2) { return misc1->d[misc2&15]; }
 static void default_out(Device*misc1,Uint8 misc2) {}
-
-static void expansion_command(Uint16 addr);
+static void default_exp(Device*misc1,Uint16 misc2) {}
 
 static void system_out(Device*dev,Uint8 id) {
+  Uint16 x;
   switch(id) {
     case 3:
-      expansion_command(GET16(dev->d+2));
+      x=GET16(dev->d+2);
+      device[mem[x]>>4].exp(device+(mem[x]>>4),x);
       break;
     case 8 ... 13:
       colors[070].r=colors[074].r=(dev->d[8]>>4)*0x11;
@@ -415,27 +416,22 @@ static Uint16 files_stat(int fd,char*name,Uint16 len,Uint8*out) {
   return 0;
 }
 
-static void files_seek(UxnFile*uf,Uint8 mode,Uint32 len) {
-  switch(mode&3) {
-    case 0: len=0; break;
-    case 1: /* do nothing */ break;
-    case 2: len<<=16; break;
-    case 3: return;
-  }
+static Uint32 files_seek(UxnFile*uf,Uint8 mode,Uint32 len) {
   switch(uf->mode) {
     case 1: case 2: case 4:
-      switch((mode>>2)&3) {
-        case 0: fseek(uf->file,len,SEEK_CUR); break;
-        case 1: fseek(uf->file,-len,SEEK_CUR); break;
-        case 2: fseek(uf->file,len,SEEK_SET); break;
-        case 3: fseek(uf->file,-len,SEEK_END); break;
+      switch(mode) {
+        case 0: fseek(uf->file,len,SEEK_SET); break;
+        case 1: fseek(uf->file,(Sint32)len,SEEK_CUR); break;
+        case 2: fseek(uf->file,(Sint32)len,SEEK_END); break;
+        case 3: return ftell(uf->file);
       }
       break;
     case 3:
-      if(((mode>>2)&3)==2) rewinddir(uf->dir);
+      if(!mode && !len) rewinddir(uf->dir);
       uf->de=0;
       break;
   }
+  return 0;
 }
 
 static int files_set(Device*dev,int rw) {
@@ -484,6 +480,9 @@ static void files_out(Device*dev,Uint8 id) {
       if(!uf->name[0]) break;
       y=files_stat(AT_FDCWD,uf->name,len,mem+addr);
       if(y<=len) PUT16(dev->d+2,y);
+      break;
+    case 7:
+      if(use_extension) files_set(dev,0);
       break;
     case 9:
       addr=GET16(dev->d+8);
@@ -573,6 +572,23 @@ static Uint8 files_in(Device*dev,Uint8 id) {
       }
       return 0;
     default: return dev->d[id];
+  }
+}
+
+static void files_exp(Device*dev,Uint16 addr) {
+  UxnFile*uf=dev->aux;
+  Uint32 x;
+  if(use_extension) switch(mem[addr]&15) {
+    case 0 ... 2:
+      x=GET16(mem+addr+1)<<16;
+      x|=GET16(mem+addr+3);
+      files_seek(uf,mem[addr]&15,x);
+      break;
+    case 3:
+      x=files_seek(uf,3,0);
+      PUT16(mem+addr+1,x>>16);
+      PUT16(mem+addr+3,x);
+      break;
   }
 }
 
@@ -835,7 +851,7 @@ static void run_audio(void) {
   }
 }
 
-static void expansion_command(Uint16 addr) {
+static void system_exp(Device*dev,Uint16 addr) {
   Uint32 src,dst;
   Uint16 len;
   switch(mem[addr]) {
@@ -1034,8 +1050,8 @@ static void debug_screen(Uint8*s,Uint8 k) {
       case 5:
         if(k=='c') files_set(device+10,0);
         if(k=='C') files_set(device+11,0);
-        if(k=='r') files_seek(&uxnfile0,8,0);
-        if(k=='R') files_seek(&uxnfile1,8,0);
+        if(k=='r') files_seek(&uxnfile0,0,0);
+        if(k=='R') files_seek(&uxnfile1,0,0);
         break;
       case 6:
         if(k==8 || k==11) --break_pc;
@@ -1410,8 +1426,10 @@ int main(int argc,char**argv) {
   for(i=0;i<16;i++) {
     device[i].in=default_in;
     device[i].out=default_out;
+    device[i].exp=default_exp;
   }
   device[0].out=system_out;
+  device[0].exp=system_exp;
   device[10].aux=&uxnfile0;
   device[11].aux=&uxnfile1;
   device[12].in=datetime_in;
@@ -1424,7 +1442,7 @@ int main(int argc,char**argv) {
     case 'Q': use_mouse=0; break;
     case 'S': disallow_size_change=1; break;
     case 'T': device[12].in=default_in; set_datetime(optarg); break;
-    case 'Y': allow_write=1; device[10].out=device[11].out=files_out; device[10].in=device[11].in=files_in; break;
+    case 'Y': allow_write=1; device[10].out=device[11].out=files_out; device[10].in=device[11].in=files_in; device[10].exp=device[11].exp=files_exp; break;
     case 'Z': use_utc=1; break;
     case 'a': set_audio(optarg); break;
     case 'd': use_debug=1; break;
@@ -1438,7 +1456,7 @@ int main(int argc,char**argv) {
     case 't': timer_rate=strtol(optarg,0,10); break;
     case 'w': default_width=strtol(optarg,0,10); break;
     case 'x': use_extension=1; break;
-    case 'y': allow_write=0; device[10].out=device[11].out=files_out; device[10].in=device[11].in=files_in; break;
+    case 'y': allow_write=0; device[10].out=device[11].out=files_out; device[10].in=device[11].in=files_in; device[10].exp=device[11].exp=files_exp; break;
     case 'z': zoom=strtol(optarg,0,10); break;
     default: return 1;
   }
@@ -1485,7 +1503,7 @@ int main(int argc,char**argv) {
   }
   if(use_screen) {
     if(size_changed) set_screen_mode(scr_w,scr_h);
-    if(use_thread) in_thread=SDL_CreateThread(stdin_thread_fn,0);
+    if(use_thread) SDL_CreateThread(stdin_thread_fn,0);
     while(run_screen()) {
       for(i=0;i<15;i++) for(j=0;j<16;j++) device[i].d[j]=0;
       load_rom();

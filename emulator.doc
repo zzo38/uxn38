@@ -223,10 +223,37 @@ emulator to the program), ? for parameters that may be input and/or output,
   (if it is unknown or unused, then the emulator MUST ignore it and not
   make changes to that data).
 
+a0 offset%
+  Given a 32-bit offset, seek the currently opened file to the specified
+  absolute offset. (You must open the file first, by attempting to read
+  from or write to it; you can read/write zero bytes to open it without
+  reading/writing anything.) (The effect of seeking (absolute or relative)
+  when a file is opened in append mode is unspecified.)
+
+a1 offset%
+  Given a signed 32-bit offset, seek the currently opened file to the
+  specified offset relative to the current file position.
+
+a2 offset%
+  Given a signed 32-bit offset, seek the currently opened file to the
+  specified offset relative to the end of the file.
+
+a3 >offset%
+  Tell the current offset of the currently opened file; the 32-bit offset
+  will be stored in the expansion command buffer.
+
+b_ offset%
+  Same as a_ but for the second file.
+
 Nonstandard ports of devices are:
 
 17
   If the high bit is set (by the uxn program), then it will trigger on
   EOF; the value of input will be zero and the value of this port will
   be 0x80. (The high bit will be preserved by the emulator.)
+
+a7/b7
+  In addition to the usual effect (sets the append mode), writing anything
+  to this port (whether or not it is the same value that was previously
+  written) will close the file.
 

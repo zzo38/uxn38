@@ -1,0 +1,27 @@
+\\ Miscellaneous stuff, which may be useful to use some of it in other programs.
+\\ This file is public domain.
+
+\\ Print a 16-bit signed number as decimal (without leading zeros).
+@printn ( number* -- )
+  DUP2k #1f SFT2 EQUk [? LIT2 "- 18 DEO ]@ MUL2 SUB2
+  LITr 00
+  [@
+    #000a DIV2k STH2k MUL2 SUB2
+    STH2 SWP2r STH2r
+    NIPr LITr 30 ADDr
+  ORAk ]?
+  POP2
+  [@ STHr #18 DEO STHrk ]?
+  POPr
+  JMP2r
+
+\\ Add together two 32-bit numbers.
+@add32 ( hi1* lo1* hi2* lo2* -- hi* lo* )
+  ROT2 STH2k ADD2 STH2k ROT2 ROT2 GTH2r #00 STHr ADD2 ADD2 SWP2
+  JMP2r
+
+\\ Absolute value of 16-bits.
+@abs ( in* -- out* )
+  DUP2k #1f SFT2 MUL2 SUB2
+  JMP2r
+

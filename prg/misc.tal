@@ -25,3 +25,6 @@
   DUP2k #1f SFT2 MUL2 SUB2
   JMP2r
 
+\\ Macro for alignment.
+%ALIGN2 { \_@:1&+! }
+

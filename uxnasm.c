@@ -497,7 +497,7 @@ parse(char *w, FILE *f)
 	case '[':
 	case ']':
 		if(slen(w) == 1) break;
-		if((w[1]=='.' || w[1]==',' || w[1]==':' || w[1]==';' || w[1]=='@' || w[1]=='\\' || w[1]=='?' || w[1]=='!') && !w[2]) {
+		if((w[1]=='.' || w[1]==',' || w[1]==':' || w[1]==';' || w[1]=='@' || w[1]=='\\' || w[1]=='?' || w[1]=='!' || w[1]=='&') && !w[2]) {
 		  if(*w=='[') {
 		    if(bsptr==256) return error("Stack overflow",w);
 		    bstack[bsptr++]=i=bcnt++;
@@ -509,6 +509,7 @@ parse(char *w, FILE *f)
 		  switch(w[1]) {
 		    case '@': if(!makelabel(w+2)) return error("Invalid label",w); break;
 		    case '\\': goto spec_ref;
+		    case '&': w[1]='!'; makereference(p.scope,w+1,p.ptr+1); return writebyte(0x60) && writeshort(0xffff, 0);
 		    default: return parse(w+1,f);
 		  }
 		  break;

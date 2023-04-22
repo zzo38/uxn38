@@ -138,6 +138,8 @@ The following nonstandard tokens are available:
  ], ]. ]; ]: ]? ]! will act like a , . ; : ? ! referencing the anonymous
  label defined by the matching [@ command.
 
+ [& and ]& are like [! and ]! but the opcode is JSI instead of JMI.
+
  ]\ acts like \: for the matching [@ command.
 
 For the . , : ; commands, the name can optionally start with & to mean

@@ -1,0 +1,387 @@
+\\ "Robots" game (similar to the BSD games "robots" game)
+\\ (This file is public domain.)
+
+|0000
+  @PlayerX $1
+  @PlayerY $1
+  @NumRobots $1
+  @Level $1
+  @Score $2
+  @HiScore $2
+
+\\ Playfield size (including the border) is 0x28 by 0x22
+|d8de @Playfield \_@1-! @Playfield- $102 @Playfield+ $1 @Playfield++
+\:Playfield \_8> \@PlayfieldH
+
+|0100
+  \\ Colours
+  #1ef8 #08 DEO2
+  #1e7d #0a DEO2
+  #1e58 #0c DEO2
+  \\ Size
+  #0140 #22 DEO2
+  #0120 #24 DEO2
+  \\ Sound
+  #0000 #38 DEO2
+  #0004 #3a DEO2
+  ;Wave #3c DEO2
+  \\ Others
+  #0126 DEO
+  ;inputVec #80 DEO2
+  \\ Random number seed
+  #c4 DEI #c1 DEI ADD #c5 DEI INC2 ;prng64/x STA2
+  #c9 DEI #c6 DEI INC2 ;prng64/y STA2
+
+@title
+  cls
+  sound 33fc 35fc 37f8 3afc 00f9 3afc 0000
+  #1008 locate
+  #8202 showc
+  #01 showi 20 "ROBOTS 20 00
+  #8202 showc
+  #0b10 locate
+  #01 showi "Push 20 "space 20 "to 20 "begin 00
+  #0120 locate
+  #01 showi "Last 20 "score: 20 00
+  .Score LDZ2 #03 shown
+  #0121 locate
+  #01 showi "High 20 "score: 20 00
+  .HiScore LDZ2 #03 shown
+  [@ input #20 NEQ ]?
+  #00 DUPk .Score STZ2 .Level STZ
+
+@beginlevel
+  sound 2efc 33fc 35fc 37fc 3afc 3ffc 0000
+  \\ Add walls and floors
+  ;Playfield [@
+    STH2k ;Playfield+ LTH2
+    STH2rk #fefe GTH2
+    STHrk INC .Playfield++ LTH
+    ORA ORA DUP ADD STH2rk STA STH2r
+  INC2 DUP [? POP .Playfield ]@ OVR ]? POP2
+  ;NumRobots STZ
+  \\ Add robots
+  LIT2 f8 -Level LDZ SUB [@
+    #01
+    #253f random #1f3f random ;Playfield+ ADD2
+    LDAk [? .NumRobots LDZk INC SWP STZ ]@
+    STA
+  INC DUP ]? POP
+  \\ Add player
+  #253f random #1f3f random ;Playfield+ ADD2 STH2k .PlayerX STZ2
+  \\ If there is a robot where the player is, destroy the robot
+  .NumRobots LDZ LDArk STHr SUB .NumRobots STZ
+  #00 STH2r STA
+
+@game
+  redraw input #7f AND #0007 SFT2 ;KeyMap ADD2 LDA2 ORAk ROT ROT JCN2 !game
+
+@KeyMap $0100
+%Key { \:KeyMap \_@1-:!#@g:++@,P }
+
+"t Key
+  \\ Teleport player to a vacant cell
+  [@
+    #253f random #1f3f random ;Playfield+ ADD2 STH2k .PlayerX STZ2
+    STH2r LDA
+  ]?
+  step
+  sound 40fe 41fe 43fe 44fe 46fe 47fe 49fe 4afe 0000
+  !game
+
+"w Key
+  \\ Wait until all robots are broken; add extra points
+  .Score LDZ2 ;NumRobots LDZ ADD2 .Score STZ2
+  [@ step ]!
+
+"b Key "1 Key
+  #ff01 !move1
+"j Key "2 Key
+  #0001 !move1
+"n Key "3 Key
+  #0101 !move1
+"h Key "4 Key
+  #ff00 !move1
+20 Key ". Key "5 Key
+  #0000 @move1 move [? sound 37f8 30f8 0000 ]@ !game
+"l Key "6 Key
+  #0100 !move1
+"y Key "7 Key
+  #feff !move1
+"k Key "8 Key
+  #ffff !move1
+"u Key "9 Key
+  #00ff !move1
+
+"B Key
+  #ff01 !moveM
+"J Key
+  #0001 !moveM
+"N Key
+  #0101 !moveM
+"H Key
+  #ff00 !moveM
+"> Key
+  #0000 @moveM [@ DUP2 move ]? POP2 !game
+"L Key
+  #0100 !moveM
+"Y Key
+  #feff !moveM
+"K Key
+  #ffff !moveM
+"U Key
+  #00ff !moveM
+
+"x Key
+  .PlayerX LDZ2 ;Playfield- SUB2 locate #820d showc
+  input POP !game
+
+"? Key
+  cls
+  #0101 locate #03 showi "yku 00
+  #0102 locate #03 showi "h.l 00 #01 showi 20 "Walk 00
+  #0103 locate #03 showi "bjn 00
+  #1101 locate #03 showi "YKU 00
+  #1102 locate #03 showi "H>L 00 #01 showi 20 "Run 00
+  #1103 locate #03 showi "BJN 00
+  #0105 locate LIT2 "t 03 showc #01 showi 20 "Teleport 20 "at 20 "random 00
+  #0107 locate LIT2 "w 03 showc #01 showi 20 "Wait 20 "for 20 "next 20 "level 00
+  #0109 locate LIT2 "x 03 showc #01 showi 20 "Reveal 20 "player 00
+  input POP !game
+
+@move ( dir* -- ok )
+  \\ New coordinates of player
+  \\ (don't worry about carry, since the walls will take care of that)
+  .PlayerX LDZ2 ADD2
+  LDAk ?&bad \\ Cannot move into an occupied cell
+  \\ Cannot move if cell in direction is robot
+  ( south ) INC2k LDA #01 EQU ?&bad
+  ( southwest ) DUP2 #ff01 ADD2 LDA #01 EQU ?&bad
+  ( southeast ) OVR INC OVR INC LDA #01 EQU ?&bad
+  ( north ) DUP2 #01 SUB LDA #01 EQU ?&bad
+  ( northwest,west ) DUP2 #0101 SUB2 LDA2 ORA #01 AND ?&bad
+  ( northeast,east ) DUP2 #00ff ADD2 LDA2 ORA #01 AND ?&bad
+  \\ It is safe, so move the player
+  .PlayerX STZ2
+  #01 !step
+  &bad POP2 #00 JMP2r
+
+@step ( -- )
+  \\ Move robots by quadrants
+  ( north ) #ffff lines
+  ( south ) #0001 lines
+  ( east ) #0100 lines
+  ( west ) #ff00 lines
+  ( northwest ) #ff00 #ffff quads
+  ( northeast ) #ffff #0100 quads
+  ( southeast ) #0100 #0001 quads
+  ( southwest ) #0001 #ff00 quads
+  \\ Check if game lost
+  .PlayerX LDZ2 LDA #00 EQU [?
+    redraw
+    sound 3ffa 3afa 36fa 33fa 0000
+    #0000 locate
+    #02 showi 20 "GAME 20 "OVER 20 00
+    #1c23 locate
+    #01 showi "q=quit 00
+    .PlayerX LDZ2 ;Playfield- SUB2 locate #8402 showc
+    [@ input LIT "q EOR ]?
+    POP2r
+    .Score LDZ2 .HiScore LDZ2 LTH2 ?title
+    .Score LDZ2 .HiScore STZ2 !title
+  ]@
+  \\ Check if game is completed
+  .NumRobots LDZ [?
+    .Level LDZk DUP #f7 LTH ADD SWP STZ
+    POP2r !beginlevel
+  ]@
+  JMP2r
+
+@lines ( dir* -- )
+  ,&dir STR2
+  LITr -PlayerX LDZ2r
+  &loop
+    STH2rk LIT2 &dir $2 ADD2 LDAk
+    DUP #02 EQU ?&stop
+    #01 NEQ [?
+      LITr 00 STH2k STAr
+      STH2rk LDA [? #01 !&put ]@
+      STH2rk LDA #01 NEQ [? addscore ]@
+      addscore
+      #04 &put STH2rk STA
+    ]@
+    POP2r STH2 !&loop
+  &stop POP POP2 POP2r JMP2r
+
+@quads ( dir1* dir2* -- )
+  ADD2k ,lines/dir STR2
+  .PlayerX LDZ2 [& .PlayerX LDZ2 OVR2 ADD2 ]@
+  STH2 ,&dir STR2
+  &loop
+    STH2rk LDA #02 EQU ?&stop
+    DUP2r LIT2r &dir $2 ADD2r
+    LIT2r :&loop ROT2r !lines/loop
+  &stop POP2r JMP2r
+
+@addscore ( -- )
+  .NumRobots LDZk #01 SUB SWP STZ
+  .Score LDZ2k #000a ADD2 ROT STZ2
+  sound 31fe 0000
+  JMP2r
+
+@redraw ( -- )
+  cls
+  .Playfield [@
+    #00 OVR .Playfield- SUB locate
+    .PlayfieldH [@
+      SWPk LDA #0007 SFT2 ;Tiles ADD2 LDA2 showc
+    INC DUP ]? POP
+  INC DUP ]? POP
+  .PlayerX LDZ2 ;Playfield- SUB2 locate #8303 showc
+  \\ fallthrough
+@status ( -- )
+  #0000 locate
+  #01 showi "Level: 00
+  ;Level LDZ #02 shown
+  #1c00 locate
+  #01 showi "Remain: 00
+  ;NumRobots LDZ #02 shown
+  #0023 locate
+  #01 showi "Score: 00
+  .Score LDZ2 #03 shown
+  #1c23 locate
+  #01 showi "?=help 00
+  JMP2r
+
+@inputVec
+  #c6 DEI ;prng64/x LDA SUB DUP #00 EQU ADD ;prng64/x STA
+  #83 DEI DUP [? POP @input BRK ]@ JMP2r
+
+@cls ( -- )
+  #0000 DUP2 #28 DEO2 #2a DEO2
+  #802e DEO #c02e DEO
+  JMP2r
+
+@locate ( x y -- )
+  #0005 SFT2 #2a DEO2
+  #0005 SFT2 #28 DEO2
+  JMP2r
+
+@showc ( char color -- )
+  SWP #0005 SFT2 ;Font ADD2 #2c DEO2
+  #2f DEO
+  JMP2r
+
+@showi ( color -- )
+  ,&color STR
+  [@
+    LDArk STHr INC2r DUP [? POP JMP2r ]@
+    #0005 SFT2 ;Font ADD2 #2c DEO2
+    LIT2 &color 002f DEO
+  ]!
+
+@shown ( number* color -- )
+  ,showi/color STR
+  LITr 00
+  [@
+    #000a DIV2k STH2k MUL2 SUB2
+    STH2 SWP2r STH2r
+    NIPr LITr 30 ADDr
+  ORAk ]?
+  POP2
+  [@ STHr ,showi/color LDR showc STHrk ]?
+  POPr
+  JMP2r
+
+@sound ( -- )
+  STH2rk ,&addr STR2
+  #00 ,&time STR
+  [@ LDA2rk STH2r ORA INC2r INC2r ]?
+  [; #20 DEO2 JMP2r ]@
+  LIT &time $1
+  DUP [?
+    POP LIT2 &addr $2 LDA2k
+    ORAk [? NIP2 DUP2 #3e DEO2 #20 DEO2 BRK ]@
+    STH
+    DUP #00 EQU #01 SUB SWP
+    #3e DEO2
+    INC2 INC2 ,&addr STR2
+    STHr
+  ]@ INC ,&time STR BRK
+
+@prng64 ( -- number* )
+  ( returns the next number in a (2^32-1)-long sequence )
+  ( http://b2d-f9r.blogspot.com/2010/08/16-bit-xorshift-rng-now-with-more.html )
+  LIT2 &x 0001
+  DUP2 #50 SFT2 EOR2
+  DUP2 #03 SFT2 EOR2
+  LIT2 &y 0001 DUP2 ,&x STR2
+  DUP2 #01 SFT2 EOR2 EOR2
+  ,&y STR2k POP
+  JMP2r
+
+@random ( limit mask -- number )
+  ,&m STR STHk
+  [@
+    POP
+    prng64 ADD LIT &m 00 AND
+    DUP STHrk GTH
+  ]?
+  POPr JMP2r
+
+@Tiles
+  8003 ( empty )
+  8102 ( robot )
+  7f01 ( wall )
+  3f01 ( unused )
+  8401 ( broken )
+
+@Wave 00 7f ff 80
+
+\_@20'8*- \@Font \~ascii.font
+
+  \-........ ( 80 )
+  \-........
+  \-........
+  \-...11...
+  \-...11...
+  \-........
+  \-........
+  \-........;
+
+  \-........ ( 81 )
+  \-.1....1.
+  \-..1..1..
+  \-...11...
+  \-...11...
+  \-..1..1..
+  \-.1....1.
+  \-........;
+
+  \-........ ( 82 )
+  \-...11...
+  \-..1111..
+  \-.111111.
+  \-.111111.
+  \-..1111..
+  \-...11...
+  \-........;
+
+  \-........ ( 83 )
+  \-...11...
+  \-..1..1..
+  \-.1....1.
+  \-.1....1.
+  \-..1..1..
+  \-...11...
+  \-........;
+
+  \-....1... ( 84 )
+  \-.1..1.1.
+  \-..1.11..
+  \-11111...
+  \-...11111
+  \-..11.1..
+  \-.1.1..1.
+  \-...1....;
+

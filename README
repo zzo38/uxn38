@@ -1,0 +1,22 @@
+See the *.doc files for documentation:
+
+* asm.doc: Documentation of assembler.
+
+* emulator.doc: Documentation of the Uxn38 emulator, including of the
+nonstandard features which it implements.
+
+* uxn.doc: Documentation of the uxn instruction set.
+
+* varvara.doc: Documentation of the standard devices and features of
+Varvara. (Nonstandard features are documented in emulator.doc)
+
+This project is available as both a fossil reopsitory and a git repository;
+the fossil is the main one. (Note that pull requests from GitHub cannot be
+merged, although you are free to make them, but I will just have to add
+them manually instead if I accept the contribution (but I can list you as
+a coauthor, if you wish).)
+
+* Fossil:  http://zzo38computer.org/fossil/uxn.ui
+
+* Git:  https://github.com/zzo38/uxn38
+

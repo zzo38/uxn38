@@ -222,6 +222,7 @@ static volatile Uint8 timer_expired=0;
 static SDL_Surface*screen;
 static Uint8 layers;
 static Uint8 palet=7;
+static Uint8 eof_trigger=0;
 
 static Sint32*audio_option;
 static SDL_AudioSpec audiospec;
@@ -851,6 +852,27 @@ static void run_audio(void) {
   }
 }
 
+static void do_extension_by_uuid(Uint16 addr) {
+  static const Uint8 uuid_eof[]="\x5A\xFD\xCD\xFE\xE2\x63\x11\xED\x96\x34\x00\x26\x18\x74\x54\x16";
+  static const Uint8 uuid_8color[]="\x80\x17\x51\x32\xE2\x63\x11\xED\xB8\xC9\x00\x26\x18\x74\x54\x16";
+  int i;
+  if(mem[addr+1]==0x10 && !use_screen && !memcmp(mem+addr+2,uuid_eof,16)) {
+    eof_trigger=1;
+    mem[addr+18]=1;
+  } else if(mem[addr+1]==0x00 && use_screen && !memcmp(mem+addr+2,uuid_8color,16)) {
+    for(i=0;i<8;i++) {
+      colors[i+070].r=(mem[addr+19+i+i]>>4)*0x11;
+      colors[i+070].g=(mem[addr+19+i+i]&15)*0x11;
+      colors[i+070].b=(mem[addr+20+i+i]>>4)*0x11;
+    }
+    if(palet==7) {
+      SDL_SetColors(screen,colors+palet*8,0,8);
+      picture_changed=1;
+    }
+    mem[addr+18]=1;
+  }
+}
+
 static void system_exp(Device*dev,Uint16 addr) {
   Uint32 src,dst;
   Uint16 len;
@@ -872,6 +894,7 @@ static void system_exp(Device*dev,Uint16 addr) {
     case 0x03:
       if(!use_extension) break;
       mem[addr+18]=0;
+      do_extension_by_uuid(addr);
       break;
   }
 }
@@ -1257,8 +1280,8 @@ static int run_screen(void) {
         run(GET16(device[9].d));
         break;
       case SDL_USEREVENT+1:
-        if(use_extension) device[1].d[7]&=0xF0;
         device[1].d[2]=e.user.code;
+        device[1].d[7]=1;
         run(GET16(device[1].d));
         break;
       case SDL_JOYAXISMOTION:
@@ -1494,11 +1517,11 @@ int main(int argc,char**argv) {
   if(device[1].d[0] || device[1].d[1]) for(i=optind+1;i<argc;i++) {
     for(j=0;argv[i][j];j++) {
       device[1].d[2]=argv[i][j];
-      device[1].d[7]=(device[1].d[7]&0x80)|0x02;
+      device[1].d[7]=2;
       run(GET16(device[1].d));
     }
     device[1].d[2]='\n';
-    device[1].d[7]=(device[1].d[7]&0x80)|(i==argc-1?0x04:0x03);
+    device[1].d[7]=(i==argc-1?4:3);
     run(GET16(device[1].d));
   }
   if(use_screen) {
@@ -1512,14 +1535,13 @@ int main(int argc,char**argv) {
   } else if(audio_option) {
     run_audio();
   } else {
-    device[1].d[7]=(device[1].d[7]&0x80)|0x01;
+    device[1].d[7]=1;
     while((device[1].d[0] || device[1].d[1]) && ((i=getchar())>=0)) {
       device[1].d[2]=i;
       run(GET16(device[1].d));
     }
-    if(use_extension && (device[1].d[7]&0x80)) {
-      device[1].d[2]=0;
-      device[1].d[7]=(device[1].d[7]&0x80)|0x00;
+    if(eof_trigger) {
+      device[1].d[2]=device[1].d[7]=0;
       run(GET16(device[1].d));
     }
   }

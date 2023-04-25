@@ -214,14 +214,8 @@ emulator to the program), ? for parameters that may be input and/or output,
   for src_page and dst_page in expanded memory operations.)
 
 03 device_id uuid% >version ?extra%
-  Loads a nonstandard device. The device ID is the starting port number to
-  use, which must be nonzero and must be a multiple of sixteen; some
-  implementations may impose further restrictions. The UUID is sixteen
-  bytes long. The version is zero if not implemented or nonzero if it is
-  implemented (the specific value is defined by the specification of that
-  extension). The extra data depends on the extension, and may be unused
-  (if it is unknown or unused, then the emulator MUST ignore it and not
-  make changes to that data).
+  Loads a nonstandard device, or a nonstandard command for an existing
+  device or that applies globally; see below section for details.
 
 a0 offset%
   Given a 32-bit offset, seek the currently opened file to the specified
@@ -242,18 +236,62 @@ a3 >offset%
   Tell the current offset of the currently opened file; the 32-bit offset
   will be stored in the expansion command buffer.
 
-b_ offset%
+b_ ?offset%
   Same as a_ but for the second file.
 
 Nonstandard ports of devices are:
-
-17
-  If the high bit is set (by the uxn program), then it will trigger on
-  EOF; the value of input will be zero and the value of this port will
-  be 0x80. (The high bit will be preserved by the emulator.)
 
 a7/b7
   In addition to the usual effect (sets the append mode), writing anything
   to this port (whether or not it is the same value that was previously
   written) will close the file.
+
+
+=== Extensions ===
+
+This describes the nonstandard "03 extensions" command mentioned above.
+
+The parts of the command are:
+
+* Command code: Always 0x03.
+
+* Device number: A command that does not load or override a device into a
+device slot is zero, otherwise it is a nonzero multiple of sixteen. Some
+extensions and some implementations may have further restrictions.
+
+* UUID: Sixteen bytes, which identifies the extension.
+
+* Version: One byte. The emulator writes a nonzero value here (the specific
+value is defined by the extension) if it is supported in this mode with
+this device number and other parameters, or zero if it is not implemented.
+(The uxn program should put zero here by default, so that if running on an
+emulator that doesn't process the 03 command at all, it will work.)
+
+* Extra data: The number of bytes and meaning is defined by the specific
+extension; this may be read-only, write-only, or some combination. If the
+extension is not implemented, then the emulator MUST ignore it and MUST NOT
+attempt to write anything here, and MUST NOT override any devices.
+
+
+=== Implemented extensions ===
+
+This section lists the "03 extensions" (see above) that are implemented in
+this emulator (the -x switch is required, since they use nonstandard
+expansion commands to activate them).
+
+5afdcdfe-e263-11ed-9634-002618745416
+  The device number must be 0x10. This will enable calling the stdio vector
+  on EOF; the type will be zero in this case. The version will be 1 (but
+  this only means that the emulator supports this feature; it does not mean
+  that stdin is connected to something that actually has a EOF). This
+  implementation requires the -n switch to be used to support this command.
+
+80175132-e263-11ed-b8c9-002618745416
+  Allows setting separate foreground and background colours. The device
+  number must be zero, and the version will be 1. The data is eight 16-bit
+  numbers, for the colours in order background 0 to 3 and then foreground 0
+  to 3 (although note that foreground 0 is not normally meaningful), with
+  the high to low nybble of each being red, green, blue, unused (zero).
+  What happens if you then try to change colours using the colour ports
+  after doing this, is not specified.
 

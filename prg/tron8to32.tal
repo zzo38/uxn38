@@ -16,5 +16,5 @@
   #0000 ROT OVR SWP write !main
 
 [@ POP @read BRK &0 #12 DEI DUP #00 EQU ]? JMP2r
-@write SWP2 SWP #18 DEO #18 DEO SWP #18 DEO #18 DEO JMP2r
+@write SWP2 [& ]@ SWP #18 DEO #18 DEO JMP2r
 

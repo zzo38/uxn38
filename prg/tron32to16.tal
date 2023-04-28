@@ -1,0 +1,13 @@
+\\ Converts TRON-32BE to TRON-16BE.
+\\ (This file is public domain.)
+
+|0100 ;input/0 #10 DEO2k
+[@
+  input EQU2k EQUk ORA [?
+    NIP2 OVRk #ff MUL [@ #fe18 DEO INCk SWP ]? POP
+    OVR INC #01 AND [? #0018 DEO ]@
+    DUP #18 DEO
+  ]@ POP2
+  input SWP #18 DEO #18 DEO
+]!
+@input [& ]@ BRK &0 #12 DEI JMP2r

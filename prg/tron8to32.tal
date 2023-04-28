@@ -1,4 +1,4 @@
-\\ Converts TRON-8 or TRON-16BE to TRON-32. (Ignores nulls)
+\\ Converts TRON-8 or TRON-16BE to TRON-32BE. (Ignores nulls)
 \\ (This file is public domain.)
 
 |0100

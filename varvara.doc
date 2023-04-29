@@ -170,6 +170,15 @@ transparent); the last two columns are not used in 1bpp mode):
      E  3 2 3 1
      F  - 3 1 2
 
+The working of auto port and sprites is working as follows: If the
+auto X bit is set then it draws several sprites vertically, and if the
+auto Y bit is set then it draws several sprites horizontally; either way,
+the X (if the auto X bit is set) or the Y (if the auto Y bit is set) is
+advanced by eight after all of the sprites are drawn (not after each one
+individually). If the auto address bit is set, then the address is
+advanced after each individual sprite (and remains advanced after it is
+finished), by 8 for 1bpp sprites or 16 for 2bpp sprites.
+
 
 === Audio ===
 

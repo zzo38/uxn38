@@ -246,7 +246,9 @@ The joypad byte has bits as follows:
   bit1 = B (or left alt)
   bit0 = A (or left control)
 
-The key is the ASCII code of the key pushed.
+The key is the ASCII code of the key pushed. It can be any printable ASCII
+character, as well as: backspace (0x08), tab (0x09), return (0x0D), escape
+(0x1B), delete (0x7F).
 
 
 === Mouse ===

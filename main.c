@@ -223,6 +223,7 @@ static SDL_Surface*screen;
 static Uint8 layers;
 static Uint8 palet=7;
 static Uint8 eof_trigger=0;
+static Uint8 touch_mode=0;
 
 static Sint32*audio_option;
 static SDL_AudioSpec audiospec;
@@ -1274,6 +1275,19 @@ static int run_screen(void) {
         k=SDL_GetMouseState(&i,&j);
         i/=zoom; j/=zoom;
         if(i<0 || i>=screen->w || j<0 || j>=screen->h) break;
+        if(touch_mode) {
+          if(e.type==SDL_MOUSEBUTTONDOWN && !device[9].d[6]) {
+            PUT16(device[9].d+2,i);
+            PUT16(device[9].d+4,j);
+            run(GET16(device[9].d));
+          } else if(e.type==SDL_MOUSEBUTTONUP && !k) {
+            device[9].d[6]=0;
+            run(GET16(device[9].d));
+            i=j=0x8000;
+          } else if(e.type==SDL_MOUSEMOTION && !k) {
+            break;
+          }
+        }
         PUT16(device[9].d+2,i);
         PUT16(device[9].d+4,j);
         device[9].d[6]=k&7;
@@ -1456,12 +1470,13 @@ int main(int argc,char**argv) {
   device[10].aux=&uxnfile0;
   device[11].aux=&uxnfile1;
   device[12].in=datetime_in;
-  while((i=getopt(argc,argv,"+ADFIJ:NQST:YZa:dh:ijnp:qs:t:w:xyz:"))>0) switch(i) {
+  while((i=getopt(argc,argv,"+ADFIJ:NOQST:YZa:dh:ijnp:qs:t:w:xyz:"))>0) switch(i) {
     case 'D': scrflags|=SDL_DOUBLEBUF; break;
     case 'F': scrflags|=SDL_FULLSCREEN; break;
     case 'I': use_thread=1; break;
     case 'J': set_joystick(optarg); break;
     case 'N': scrflags|=SDL_NOFRAME; break;
+    case 'O': touch_mode=1; device[9].d[2]=device[9].d[4]=0x80; break;
     case 'Q': use_mouse=0; break;
     case 'S': disallow_size_change=1; break;
     case 'T': device[12].in=default_in; set_datetime(optarg); break;

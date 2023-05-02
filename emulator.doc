@@ -16,6 +16,10 @@
 -N
   Tells the window manager to omit the frame.
 
+-O
+  Emulate touch screen. (This is an experimental feature, and may be
+  changed or removed in future.)
+
 -Q
   Disable the mouse initially (it can still be enabled at run time).
 

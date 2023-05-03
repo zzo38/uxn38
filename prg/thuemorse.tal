@@ -1,0 +1,24 @@
+\\ Thue-Morse
+\\ (public domain)
+
+|0100
+  LITr 30 LIT2r :hi [;
+    [@
+      LDAk STH2rk STA
+      INC2 INC2r
+      STH2rk ORA
+    ]?
+    STHrk INCk STArk !hi
+  ]@
+  \_@
+  [@
+    [@
+      LDArk LITr 18 DEOr
+      LDArk LITr 01 EORr STH2k STAr
+      INC2 INC2r
+      STH2rk SUB2k NEQ2
+    ]?
+    POP2r #0a18 DEO
+  ]&
+  \_@,-0,- \@hi
+

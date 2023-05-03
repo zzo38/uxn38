@@ -28,7 +28,6 @@ In the below lists, asterisks indicate 16-bit ports.
 
 00 = Vector *
 02 = Expansion *
-04 = Title *
 06 = Metadata *
 08 = Colours (red) *
 0A = Colours (green) *
@@ -42,9 +41,6 @@ Writing an address to the expansion port will execute an expansion
 operation, which is a record stored at that address; the first byte of
 that data is the operation code, and the rest are the arguments. See the
 below list of expansion operations.
-
-The title port points to a null-terminated ASCII string which may be used
-as the window title (if supported by the emulator).
 
 The colours control the colours of the display, where the high nybble of
 each controls the value for colour index 0, and the low nybble of each

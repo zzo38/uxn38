@@ -513,6 +513,15 @@ parse(char *w, FILE *f)
 		    default: return parse(w+1,f);
 		  }
 		  break;
+		} else if(w[1]=='[' && w[0]==']' && !w[2]) {
+		  if(!bsptr) return error("Stack underflow",w);
+		  i=bstack[bsptr-1];
+		  bstack[bsptr-1]=bcnt++;
+		  snprintf(w,10,"!\\%x\\",bstack[bsptr-1]);
+		  if(!parse(w,f)) return 0;
+		  snprintf(w,10,"\\%x\\",i);
+		  if(!makelabel(w)) return error("Invalid label",w);
+		  break;
 		}
 		/* fall through */
 	default: defa:

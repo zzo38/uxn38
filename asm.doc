@@ -142,6 +142,9 @@ The following nonstandard tokens are available:
 
  ]\ acts like \: for the matching [@ command.
 
+ ][ is like [! corresponding to a later ] and then ]@ corresponding to a
+ earlier [ command (it can be used like a else block).
+
 For the . , : ; commands, the name can optionally start with & to mean
 that it is interpreted the same as for a & command.
 

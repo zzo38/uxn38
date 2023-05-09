@@ -749,6 +749,7 @@ static void audio_out(Device*dev,Uint8 id) {
   s=(dev->d[15]&0x7F)+audio_option['n'-'a'];
   s=notes[s%12]>>(10-s/12);
   if(n<256) s=(n*(unsigned long long)s)>>8;
+  if(use_extension && (dev->d[6] || dev->d[7])) s=(((unsigned long long)s)*(0x10000+GET16(dev->d+6)))>>16;
   a->freq=s;
   if(audiospec.channels==1) {
     a->vol[0]=a->vol[1]=((dev->d[14]&15)+(dev->d[14]>>4))/2;

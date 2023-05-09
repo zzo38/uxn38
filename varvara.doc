@@ -180,7 +180,7 @@ finished), by 8 for 1bpp sprites or 16 for 2bpp sprites.
 
 30 = Vector *
 32 = Position *
-33 = Output
+34 = Output
 38 = Envelope *
 3A = Length *
 3C = Address *

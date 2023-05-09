@@ -245,6 +245,11 @@ b_ ?offset%
 
 Nonstandard ports of devices are:
 
+36*/46*/56*/66*
+  Detune register. This is treated as sixteen fraction bits, and is then
+  added to 1.0 and multiplied by the frequency which has been specified by
+  the pitch and length ports.
+
 a7/b7
   In addition to the usual effect (sets the append mode), writing anything
   to this port (whether or not it is the same value that was previously

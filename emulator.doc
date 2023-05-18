@@ -48,6 +48,11 @@
 -d
   Enable some debugging features. (Some will work even without this.)
 
+-e #
+  Execute another program (with "sh -c"), which will be connected to this
+  one using the standard I/O. For example, it can be used with nc to make
+  remote two players.
+
 -h #
   Set default screen height.
 

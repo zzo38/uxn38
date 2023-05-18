@@ -196,6 +196,8 @@ static Uint8*bglayer;
 static Uint8*fglayer;
 static UxnFile uxnfile0;
 static UxnFile uxnfile1;
+static FILE*inf;
+static FILE*outf;
 
 static const char*rom_name;
 static Uint8 use_console=1;
@@ -260,7 +262,7 @@ static void debug(int i) {
 
 static void uxnerr(int n,int pc) {
   if(use_debug) debug(-1);
-  fflush(stdout);
+  fflush(outf);
   fflush(stderr);
   errx(2,"Uxn error %d at 0x%04X",n,pc);
 }
@@ -353,7 +355,7 @@ static void run(Uint16 pc) {
     paused=debugger=picture_changed=1;
     break_pc=pc-1;
   }
-  fflush(stdout);
+  fflush(outf);
   return;
   error:
   uxnerr(v,pc);
@@ -404,7 +406,7 @@ static void system_out(Device*dev,Uint8 id) {
 
 static void console_out(Device*dev,Uint8 id) {
   switch(id) {
-    case 8: putchar(dev->d[8]); break;
+    case 8: fputc(dev->d[8],outf); break;
     case 9: fputc(dev->d[9],stderr); break;
   }
 }
@@ -1352,7 +1354,7 @@ static int stdin_thread_fn(void*unused) {
   int c;
   SDL_Event e;
   e.type=SDL_USEREVENT+1;
-  while((c=getchar())>=0) {
+  while((c=fgetc(inf))>=0) {
     e.user.code=c;
     SDL_PushEvent(&e);
   }
@@ -1459,6 +1461,33 @@ static void set_joystick(char*s) {
   }
 }
 
+static void set_other_program(const char*s) {
+  int pf[4];
+  pid_t pi;
+  if(pipe(pf) || pipe(pf+2)) err(1,"Pipe failed");
+  pi=fork();
+  if(pi==(pid_t)(-1)) err(1,"Fork failed");
+  if(pi) {
+    // Parent
+    close(pf[1]);
+    close(pf[2]);
+    inf=fdopen(pf[0],"r");
+    if(!inf) err(1,"Cannot open pipe for input");
+    outf=fdopen(pf[3],"w");
+    if(!outf) err(1,"Cannot open pipe for output");
+  } else {
+    // Child
+    close(pf[0]);
+    close(pf[3]);
+    if(dup2(pf[1],1)<0 || dup2(pf[2],0)<0) err(1,"Cannot duplicate file descriptors");
+    close(pf[1]);
+    close(pf[2]);
+    execl("/bin/sh","/bin/sh","-c",s,(char*)0);
+    fprintf(stderr,"Cannot exec\n");
+    _exit(1);
+  }
+}
+
 int main(int argc,char**argv) {
   int i,j;
   for(i=0;i<16;i++) {
@@ -1471,7 +1500,8 @@ int main(int argc,char**argv) {
   device[10].aux=&uxnfile0;
   device[11].aux=&uxnfile1;
   device[12].in=datetime_in;
-  while((i=getopt(argc,argv,"+ADFIJ:NOQST:YZa:dh:ijnp:qs:t:w:xyz:"))>0) switch(i) {
+  inf=stdin; outf=stdout;
+  while((i=getopt(argc,argv,"+ADFIJ:NOQST:YZa:de:h:ijnp:qs:t:w:xyz:"))>0) switch(i) {
     case 'D': scrflags|=SDL_DOUBLEBUF; break;
     case 'F': scrflags|=SDL_FULLSCREEN; break;
     case 'I': use_thread=1; break;
@@ -1485,6 +1515,7 @@ int main(int argc,char**argv) {
     case 'Z': use_utc=1; break;
     case 'a': set_audio(optarg); break;
     case 'd': use_debug=1; break;
+    case 'e': set_other_program(optarg); break;
     case 'h': default_height=strtol(optarg,0,10); break;
     case 'i': hide_cursor=1; break;
     case 'j': joypad_repeat=1; break;
@@ -1552,7 +1583,7 @@ int main(int argc,char**argv) {
     run_audio();
   } else {
     device[1].d[7]=1;
-    while((device[1].d[0] || device[1].d[1]) && ((i=getchar())>=0)) {
+    while((device[1].d[0] || device[1].d[1]) && ((i=fgetc(inf))>=0)) {
       device[1].d[2]=i;
       run(GET16(device[1].d));
     }

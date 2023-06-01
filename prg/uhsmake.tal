@@ -1,0 +1,346 @@
+\\ UHS make (public domain)
+\\ Requires some nonstandard features of uxn38.
+
+|0000
+  @X $1 @Y $1
+  $2 \\ padding, used when a block is not given a label name
+  @Name $2
+  @Line $2
+  @LineIn $2
+  @Tlength $1
+  @Tend $1
+|0028 \\ note that this number is on purpose, for purpose of making the key
+  @Title
+
+|0100
+  \\ Check arguments
+  #17 DEI [? error "usage: 20 "uhsmake.rom 20 "<inputfile> 20 "<outputfile> 0a ]@
+  \\ Input file name
+  LIT2r :filename DUP2r
+  [; #10 DEO2 BRK ]@
+  #17 DEI #02 GTH [? #12 DEI STH2rk INC2r STA BRK ]@
+  #00 STH2r STA
+  DUP2rk LITr a8 DEO2r
+  \\ Output file name
+  [; #10 DEO2 BRK ]@
+  #17 DEI #02 GTH [? #12 DEI STH2rk INC2r STA BRK ]@
+  #00 DUPk STH2r STA
+  LITr b8 DEO2r
+  #10 DEO2
+  \\ Write the 88a format heading of the hint file
+  ;uhshlen #ba DEO2
+  ;uhshead #be DEO2
+  \\ Initialize variables
+  ;firstname .Name STZ2
+
+\\ First pass
+  #0003 .Line STZ2
+  LIT2r :heap DUP2r \\ keep it for later too
+  #00 DUPk INC \\ the first entry has 0 to keep track of misnesting
+  \\ stack entry: ( line-number* block-entry* type )
+  \\ 00=hint/nesthint 01=subject ff=comment/credit
+@pass1
+  GTH2rk STHr ?overflow
+  nxline [:
+    ". :p1text
+    "- :p1brk
+    "( :p1cc
+    "< :p1cc
+    "{ :p1sub
+    "[ :p1hint
+    ": :p1link
+    ") :p1close
+    "} :p1close
+    "] :p1close
+    "> :p1close
+    "# :p1ign
+    "& :p1title
+  00 ]@
+
+\\ Second pass
+  POP2r
+  POP #0000 EQU [? error "Unterminated 20 "block 0a ]@
+  #00a7 DEO ( rewind )
+  \\ Send first block heading
+  ;typ/subject .Line LDZ2 #0001 SUB2 nodehead
+  \\ Send title
+  ;Tlength LDZ
+  DUP [? error "Missing 20 "title 0a ]@
+  #ba DEO2 ;Title #be DEO2 crlf
+  \\ Make key
+  \\  In C codes:  k[i]+="key"[i%3]^(i+40); while(k[i]>127) k[i]-=96;
+  LIT2 -Title -Tlength LDZ ADDk .Tend STZ POP
+  [@
+    LDZk STH LIT2r :key STHk LITr 03 DIVrk MULr SUBr ADDr LDAr STHk EORr ADDr
+    STHrk #80 LTH [? DUPr LITr df GTHr INCr LITr 60 MULr SUBr ]@ STHk STZr
+    INC DUP
+  ]?
+  \\ stack entry: ( type )
+  \\ 00=subject/comment/credit 01=hint ff=nesthint
+  \\ (The appropriate value is already in the stack)
+@pass2
+  nxline [:
+    ". :p2text
+    "- :p2brk
+    "( :p2com
+    "< :p2cred
+    "{ :p2sub
+    "[ :p2hint
+    ": :p2link
+    ") :p2close
+    "} :p2close
+    "] :p2close
+    "> :p2close
+    "# :p2ign
+    "& :p2ign
+  00 ]@
+
+\\ Finished
+  ;verlen #ba DEO2
+  ;version #be DEO2
+  #800f DEO
+
+\_@2+fe'&(@2+!) \\ alignment
+@key "yke
+
+@overflow
+  error "Heap 20 "overflow 0a
+
+@error
+  \\ Line number
+  LIT2r 19 DEO LIT LIT ;number/em STH2k STA INC2r STA2r
+  .LineIn LDZ2 number #2019 DEO
+  \\ Text
+  [@ STH2rk INC2r LDA DUP #19 DEO #0a EOR ]?
+  #010f DEO BRK
+
+@p1link
+  need95a
+  DUP [? add1line STH LITr 01 STH2k STAr STHr ]@
+  badcontext
+  rname1 ORA [? error "Name 20 "required 20 "for 20 "link 0a ]@
+  add2line
+@p1text
+  DUP #01 NEQ [? error "Text 20 "line 20 "not 20 "allowed 20 "in 20 "subject 20 "block 0a ]@
+  add1line
+@p1ign
+  skline !pass1
+@p1title
+  LITr 00 .Title
+  [@
+    #ac DEI
+    DUP #1f GTH [?
+      LITr -Tlength STZr
+      POP2 !pass1
+    ]@
+    OVR STZ INC INCr
+  ]!
+@p1cc
+  #ff !p1open
+@p1sub
+  #01 !p1open
+@p1hint
+  #00
+@p1open
+  ,&kind STR
+  badcontext
+  DUP [? need95a add1line STH LITr 01 STH2k STAr STHr ]@
+  .Line LDZ2 DUP2 rname1 INC2 INC2
+  LDA2k DUP2k EOR2 EQU2 [? error "Duplicate 20 "label 0a ]@
+  STA2 STH2rk LIT &kind $1
+  #00 DUPk #02 STZ2 STH2rk STA ( nest flag )
+  INC2r INC2r INC2r ( skip past the newly added record )
+  add2line !p1ign
+@p1close
+  POP ORAk [? error "Block 20 "ended 20 "without 20 "beginning 0a ]@
+  \\ Set the number of lines in the block record
+  INC2 SWP2 LITr -Line LDZ2r STH2 SUB2r STH2 STA2r
+  !p1ign
+@p1brk
+  badcontext
+  LIT2r :p1ign DUP ?add2line !add1line
+
+@p2brk
+  DUP [? ;typ/blank #0002 nodehead ]@
+  LIT "- emit crlf
+@p2ign
+  skline !pass2
+@p2com
+  p2open :typ/comment
+@p2cred
+  p2open :typ/credit
+@p2sub
+  p2open :typ/subject
+@p2hint
+  p2open 0000
+@p2open
+  INCk [? LIT "= emit crlf ]@
+  STH2r LDA2
+  rname2 POP2 \\ ignore the label name, if any
+  ORAk [?
+    \\ Read nest flag of current record
+    LDArk STHr [? POP INC ;typ/hint ][ INC SUB ;typ/nesthint ]@
+  ][
+    #00 ROT ROT
+  ]@
+  INC2r STH2rk LDA2 nodehead INC2r INC2r
+@p2plain
+  plain !pass2
+@p2close
+  POP !p2ign
+@p2link
+  INCk [? LIT "= emit crlf ]@
+  ;typ/link #0003 nodehead
+  rname2 plain
+  INC2 INC2 LDA2 ORAk [? error "Undefined 20 "label 0a ]@
+  number crlf !pass2
+@p2text
+  INCk [?
+    \\ Encryption for "nesthint" block
+    LIT2 -Tend -Title STHk
+    [@
+      #ac DEI DUP #20 LTH ?&n
+      OVR LDZ STHrk EOR ADD
+      DUP #20 SUB #60 DIVk MUL NIP SUB
+      emit
+      INCr INC EQUk .Tlength LDZ MUL SUB
+    ]!
+  ]@
+  DUP ?&h !p2plain
+  \\ Encryption for "hint" block
+  [@ DUP #01 AND #5f MUL ADD #20 ADD #01 SFT emit
+  &h #ac DEI DUP #1f GTH ]? &z POP crlf !pass2
+  &n POP2 POPr !&z
+
+@add2line ( -- ) add1line ( fall through )
+@add1line ( -- ) .Line LDZ2k INC2 ROT STZ2 JMP2r
+
+[@ emit @plain ( -- ) #ac DEI DUP #1f GTH ]? POP !crlf
+
+@badcontext ( type -- type )
+  INCk STH2r JCN2
+  error "Not 20 "valid 20 "in 20 "this 20 "context 0a
+
+@nxline
+  ;LineIn LDZ2k INC2 ROT STZ2
+  [@ POP #ac DEI DUP #00 EQU ?&zero DUP #21 LTH ]?
+  [@ INC2r INC2r
+    LDArk STHr [? error "Unrecognized 20 "command 0a ]@
+    STH2rk INC2r LDA OVR NEQ
+  ]? &zero POP LDA2r JMP2r
+
+@skline ( -- )
+  #ac DEI DUP #0a NEQ MUL ?skline JMP2r
+
+@need95a ( -- )
+  LIT "5 ;version/0 STA JMP2r
+
+@rname1 ( -- nameptr* )
+  LIT2 ". ac DEI NEQk [? EOR DUP JMP2r ]@
+  ( dot char // heap* return* )
+  SWP2r DUP2r LIT2r 0006 ADD2r STH2rk ;&ns STA2
+  ( dot char // return* heap* stringptr* )
+  [@
+    STH2rk INC2r STA #ac DEI
+    DUP #20 GTH [? error "Invalid 20 "character 20 "in 20 "label 20 "name 0a ]@
+    NEQk
+  ]?
+  EOR STH2rk STA ( null terminator )
+  ( // return* heap* endstr* )
+  ;firstname &find
+  LDA2 ORAk [?
+    \\ Not found; add a new one
+    INC2r ROT2r ROT2r
+    INC2rk INC2r SWP2r STA2rk LDA2r
+    STH2rk STA2k INC2 INC2 STA2
+    STH2rk .Name STHk LDZ2 STA2 STZ2r STH2r JMP2r
+  ]@
+  LIT2r &ns $2 INC2k INC2 INC2 INC2
+  ( namerec* str1* // return* heap* endstr* str2* )
+  [@
+    INC2k SWP2 LDA LDArk STHr INC2r
+    ( namerec* str1n* char1 char2 // return* heap* endstr* str2n* )
+    EQUk [? POP2 POP2 POP2r !&find ]@
+    POP
+  ]?
+  \\ Found
+  POP2r POP2r POP2 DUP2 STH2rk STA2 INC2r INC2r SWP2r JMP2r
+
+@rname2 ( -- nameptr* )
+  LIT2 ". ac DEI NEQ [? #0000 JMP2r ]@
+  [@ LIT2 ". ac DEI NEQ ]?
+  STH2r \\ save return address
+  STH2rk INC2r INC2r LDA2
+  ( return* nameptr* // newheap* )
+  \\ Skip past the name record if it is this address
+  DUP2 STH2rk NEQ2 [?
+    LIT2r 0004 ADD2r
+    [@ LDArk STHr INC2r ]?
+  ]@
+  SWP2 JMP2
+
+@number ( number* -- )
+  LITr 00
+  [@
+    #000a DIV2k STH2k MUL2 SUB2
+    STH2 SWP2r STH2r
+    NIPr LITr 30 ADDr
+  ORAk ]?
+  POP2
+  [@ STHr &em emit STHrk ]?
+  POPr JMP2r
+
+@emit ( char -- ) LIT2r 0001 DUP2r STHrk STZ LITr ba DEO2r LITr be DEO2r JMP2r
+
+@nodehead ( type* lines* -- )
+  number #2001 STZ #01bf DEO
+  #bb DEO #00 SWP ;nodetypes ADD2 #be DEO2
+  \\ Fallthrough
+@crlf ( -- ) #0002 #ba DEO2 [; #be DEO2 JMP2r ]@ 0d0a
+
+@nodetypes
+  "nesthint
+  "subject
+  "credit
+  "comment
+  "link
+  "blank
+
+@version
+  \_@
+  "3 20 "version 0d0a
+  "9 &0 "1a 0d0a
+  "Compiled 20 "using 20 "uhsmake 20 "of 20 "uxn. 0d0a
+  1a 0000 ( checksum )
+  \_@,- \@verlen
+
+\\ Name entry format:
+\\   next name entry address (16-bits)
+\\   line number (16-bits)
+\\   name (null-terminated text)
+@firstname 0000 0001 ( this one doesn't need text )
+\\ These following things share the same memory, since @uhshead and
+\\ @filename are both only used once, so they can be reused to store
+\\ the heap after initialization.
+@heap
+@uhshead \_@ \~not88aonly.uhs \_@,- \@uhshlen
+@filename
+
+\\ Record types (in heap):
+
+\\ label/link:
+\\   address of name entry (16-bits)
+\\   (if the name entry immediately follows, skip past it)
+\\ credit/comment/subject/hint/nesthint:
+\\   nest flag (8-bits; 0=not nest, 1=nest)
+\\   number of lines (16-bits)
+
+@typ
+  |0008 &nesthint
+  |0404 &hint
+  |0807 &subject
+  |0f06 &credit
+  |1507 &comment
+  |1c04 &link
+  |2005 &blank
+

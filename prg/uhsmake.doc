@@ -1,0 +1,51 @@
+Give two command-line arguments, being the input file name and the output
+file name. (This program does not operate in GUI mode or interactive mode.)
+
+Each line of the input file contains a command, indicated by the first
+character. The possible commands are:
+
+#  Comment in the input file; not written to the output. (This is not the
+same as a comment block.)
+
+.  A line of text. Only allowed inside of a () or <> or [] block; cannot be
+used at the top level or inside of a {} block.
+
+&  Define the title of the hint file. Should occur exactly once.
+
+-  A separator line (which should not include any text). Only allowed
+inside of a {} block or a [] block. In a [] block, it will hide all further
+text in this block until the user tells to reveal the next part (you can
+have more than one separator; each one stops output until the user tells to
+continue further output). In a {} block, just makes a blank line.
+
+:  A link to some other block in the file. Follow by the target label name
+(which is the label name of any block in the file) and then . and the text
+of the link.
+
+There are also blocks. The characters [ ( < { indicate the beginning of a
+block and ] ) > } indicate the end of a block. The begin block line will
+also have the label name (which can be blank if there is no label name)
+and then . and then the text which is the title of that block. The end
+block line should not have any text.
+
+()  Comment: A block of text which is not a hint, but just text. Cannot
+contain any other blocks, and cannot contain links. (This is not the same
+as the # command.)
+
+<>  Credit: Works like comment blocks.
+
+{}  Subject: A menu block. Can include other blocks but not text lines.
+(Normally used for grouping hints by the section in the game.)
+
+[]  Hint: This block can contain text and other blocks. This is used for a
+game hint and the title is usually a question that will be answered by the
+text in this block. You can add separator lines so that only one part of
+the text is revealed at a time.
+
+Any line in the input file can optionally be indented by spaces and/or tabs
+at the beginning of the line; any such indentation is ignored. (You can use
+this to indent blocks if you wish.)
+
+This program will not calculate the checksum of the UHS file; however, the
+FOSS implementations do not care about the checksum, so it isn't a problem.
+

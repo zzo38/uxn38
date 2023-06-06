@@ -1,0 +1,294 @@
+\\ UHS viewer (public domain)
+\\ Requires some nonstandard features of uxn38.
+
+\\ (This program is currently incomplete.)
+
+|0000
+  @Jstate $1
+  @Mstate $1
+  @MouseX $2
+  @MouseY $2
+  \\ Pointers into line index
+  @Active $2
+  @Scroll $2
+  @Cursor $2
+  @Break $2
+|0022
+  @Width $1
+|0024
+  @Height $1
+  @Tend $1
+|0028
+  @Title
+
+|0100
+  started
+@makeindex
+  \\ Load the list of lines
+  LIT2r :line-1 LIT2r :lines
+  &go
+    \\ Update parent address if necessary
+    OVR2r STH2r #06 ADD LDA2 STH2rk GTH2 [?
+      SWP2r LDA2r
+      STH2rk #05 ADD LDA .typ/subject EOR ;&in STA
+      SWP2r !&go
+    ]@
+    \\ File position
+    #a3 STH2rk STA STH2rk #02 DEO2
+    \\ Parent address
+    STA2rk
+    \\ Number of lines, or - or =
+    #0000 #ac DEI
+    ( number* char // parent* addr* )
+    isword "- -typ/break 0d
+    isword "= -typ/inner 0d
+    DUP #1a EQU ?&eof
+  &ch
+    DUP #0a EQU ?&el
+    DUP #20 EQU ?&sp
+    #30 SUB DUP #09 GTH ?&nn
+    STH #000a MUL2 #00 STHr ADD2
+    #ac DEI !&ch
+  &sp
+    POP #ac DEI
+    DUP LIT "c NEQ [?
+      POP #ac DEI
+      isword "r -typ/credit "edit 0d
+      isword "o -typ/comment "mment 0d
+    ]@
+    isword "s -typ/subject "ubject 0d
+    isword "h -typ/hint "int 0d
+    isword "n -typ/nesthint "esthint 0d
+    isword "l -typ/link "ink 0d
+    isword "b -typ/blank "lank 0d
+    \\ None match, so fall through
+  &nn
+    POP #ac DEI DUP #0a NEQ ?&nn \\ fall through
+  &el
+    DUP EOR \\ fall through
+  &set
+    \\ Update parent address if applicable
+    LIT &in 00 [? NIP2r DUP2r DUP .typ/subject EOR ,&in STR ]@
+    DUP .typ/inner NEQ [? ,&in LDR DUP .subxnest NEQ MUL ,&in STR ]@
+    \\ Send record
+    STH2rk #05 ADD STA
+    ORAk [? INC ]@
+    #30 SFT2 STH2rk ADD2 STH2rk #06 ADD STA2
+    LIT2r 0008 ADD2r !&go
+  &eof
+    POP POP2 LIT2r :line-1/final STA2r POP2r \\ continue
+\\ Load and encrypt title
+  ;line2 seek
+  ;line3z LDA2 ;line2z LDA2 SUB2 #0002 SUB2
+  DUP .Title ADD .Tend STZ #aa DEO2
+  LIT2r :Title STHrk LITr ac DEO2r
+  [@
+    LDZk STH LIT2r :Tkey STHk LITr 03 DIVrk MULr SUBr ADDr LDAr STHk EORr ADDr
+    STHrk #80 LTH [? DUPr LITr df GTHr INCr LITr 60 MULr SUBr ]@ STHk STZr
+    INC DUP
+  ]?
+  POP ;line-1
+\\ This must end not before 0x0200
+\_1@8>/[1E]
+
+@gonode ( address* -- )
+  ( clear screen ) DUP2k EOR2 #28 DEO2k INC INC DEO2 #802e DEO
+  DUP2 .Active STZ2 DUP2 .Scroll STZ2 .Cursor STZ2
+  showtitle
+  
+  BRK
+
+@seek ( node* -- )
+  STH2k LDA2 #a000 STH2rk STA2 STH2rk #02 DEO2 STH2r STA2 JMP2r
+
+@locate ( x y -- )
+  #0005 SFT2 #2a DEO2 #0005 SFT2 #28 DEO2 JMP2r
+
+@drawch ( char -- )
+  #0005 SFT2 ;Font ADD2 #2c DEO2 LIT2 &ink 012f DEO JMP2r
+
+@rvon ( -- )
+  LIT2 04 \,drawch/ink STR JMP2r
+
+@rvoff ( -- )
+  LIT2 01 \,drawch/ink STR JMP2r
+
+@showtitle ( -- )
+  rvon #0100 locate
+  #ff drawch \\ TODO: change it to draw the icon for the block type
+  .Active LDZ2 seek
+  [@ #ac DEI DUP #0d NEQ [? POP JMP2r ]@ drawch ]!
+
+@error
+  [@ STH2rk INC2r LDA DUP #19 DEO #0a EOR ]?
+  #010f DEO BRK
+
+@isword ( char -- )
+  DUP LDArk STHr INC2r EQU [?
+    [@ LDArk STHr INC2r #0d NEQ ]? JMP2r
+  ]@
+  POP LDArk STHr
+  [@
+    INC2r
+    #ac DEI
+    DUP #0a NEQ [? POP2r ?makeindex/el ]@
+    DUP LDArk STHr EQU [? POP2r ?makeindex/nn ]@
+    #0d NEQ [? POP2r #ac DEI ?makeindex/set ]@
+  ]!
+
+@decode ( char -- char )
+  DUP #21 LTH [?
+    DUP ADD DUP #9f GTH #5f MUL SUB
+  ]@ JMP2r
+
+@vkey
+  #92 DEI2 #28 DEO2 #94 DEI2 #2a DEO2 #402f DEO
+  
+  #82 DEI .Jstate STH2k LDZ STZr EQU ?&brk
+    
+  &brk BRK
+
+@vmouse
+  .MouseX LDZ2 #28 DEO2
+  .MouseY LDZ2 #2a DEO2
+  #402f DEO
+  #92 DEI2 DUP2 .MouseX STZ2 #28 DEO2
+  #94 DEI2 DUP2 .MouseY STZ2 #2a DEO2
+  ;mouseshape #2c DEO2 #c12f DEO
+  #96 DEI .Mstate STH2k LDZ STZr EQU ?vkey/brk
+    
+  BRK
+
+\_@2+fe'&(@2+!) \\ alignment
+@Tkey "yke
+
+\_@8@7&-7&+! ( alignment )
+
+@mouseshape
+  \=2222222.
+  \=2333332.
+  \=2332222.
+  \=23232...
+  \=232232..
+  \=232.232.
+  \=222..232
+  \=......22;
+
+( 1c )
+  \-...1....
+  \-..1.1...
+  \-.1...1..
+  \-1.....1.
+  \-1.....1.
+  \-.1...1..
+  \-..1.1...
+  \-...1....;
+
+( 1d )
+  \-........
+  \-........
+  \-........
+  \-........
+  \-1.....1.
+  \-.1...1..
+  \-..1.1...
+  \-...1....;
+
+( 1e )
+  \-...1....
+  \-..1.1...
+  \-.1...1..
+  \-1.....1.
+  \-........
+  \-........
+  \-........
+  \-........;
+
+( 1f )
+  \-........
+  \-.11.....
+  \-.1111...
+  \-.111111.
+  \-.1111...
+  \-.11.....
+  \-........
+  \-........;
+
+\_@20'8*- \@Font \~ascii.font
+
+\\ Extra records (explained below)
+@line-1 :line-1 00 00 00 -typ/subject &final ffff
+@line0 0000 00 00 00 -typ/inner :lines
+
+@lines
+  \\ List of lines of UHS file is stored in here.
+  \\ (This area is also used for some things only used during initialization)
+  \\ The format is:
+  \\   Address of record for parent node (two bytes)
+  \\   File offset (three bytes)
+  \\   Item type (one byte)
+  \\   Address of record for line following end of block (two bytes)
+  \_@8+ \@line2
+  \_@b+ \@line2z
+  \_@8+b+ \@line3z
+
+@endof88a
+  0a "** 20 "END 20 "OF 20 "88A 20 "FORMAT 20 "** 0d0a &end
+
+@notuhs
+  error "Not 20 "a 20 "UHS 20 "file 0a
+
+@started
+  #17 DEI [?
+    error "usage: 20 "uhsview.rom 20 "<uhsfile> 0a
+  ]@
+  \\ Read file name
+  LIT2r :filename DUP2r
+  [; #10 DEO2 BRK ]@
+  #17 DEI #02 GTH [? #12 DEI STH2rk INC2r STA BRK ]@
+  \\ Finish with file name
+  #00 DUPk STH2r STA #10 DEO2
+  LITr a8 DEO2r
+  \\ Check file existence and if it is UHS
+  #ac DEI2
+  #a3 DEI [? error "Cannot 20 "read 20 "file 0a ]@
+  LIT2 "UH NEQ2 ?notuhs
+  #ac DEI2 LIT2 "S 0d NEQ2 ?notuhs
+  #ac DEI #0a NEQ ?notuhs
+  \\ Find the "** END OF 88A FORMAT **"
+  LIT2r :endof88a DUP2r
+  [@
+    #a3 DEI [?
+      error "This 20 "program 20 "is 20 "not 20 "compatible 20 "with 20 "88a 20 "format 0a
+    ]@
+    #ac DEI STH2rk INC2r LDA EQU [? POP2r DUP2r ]@
+    STH2rk ;endof88a/end NEQ2
+  ]?
+  POP2r POP2r
+  \\ Device initialization
+  #d0f0 #08 DEO2
+  #d0f2 #0a DEO2
+  #c0f1 #0c DEO2
+  #0200 #22 DEO2
+  #00c8 #24 DEO2
+  #0126 DEO
+  ;vkey #80 DEO2
+  ;vmouse #90 DEO2
+  #2224 [& ]@ DEI2k #03 SFT2 SWP #00 NEQ #ff MUL ORA SWP STZ JMP2r
+
+@filename
+  \\ File name storage
+
+@typ |00
+  &none $1
+  &subject $1
+  &hint $1
+  &nesthint $1
+  &comment $1
+  &credit $1
+  &link $1
+  &blank $1
+  &break $1
+  &inner $1
+  \:typ/subject \:typ/nesthint \_^ \@subxnest
+

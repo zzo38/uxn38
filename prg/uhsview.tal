@@ -91,10 +91,11 @@
 \\ This must end not before 0x0200
 \_1@8>/[1E]
 
-@gonode ( address* -- )
+@gonode ( address* -- ) ( no return )
   ( clear screen ) DUP2k EOR2 #28 DEO2k INC INC DEO2 #802e DEO
   DUP2 .Active STZ2 DUP2 .Scroll STZ2 .Cursor STZ2
   showtitle
+@shownode
   
   BRK
 

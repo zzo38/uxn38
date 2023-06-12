@@ -1,0 +1,22 @@
+|0100
+  LIT2r :buff DUP2rk
+  #17 DEI [? INC2r !ready ]@
+  [; #10 DEO2 BRK ]@
+  #0217 DEI NEQ ?ready
+  #12 DEI STH2rk STA INC2r BRK
+@ready
+  DUP2rk EOR2r SWP2r STA2r
+  LITr a8 DEO2r
+  ;bufsiz #aa DEO2
+[@
+  STH2rk #ac DEO2
+  #a2 DEI2 ORAk [? #800f DEO ]@
+  STH2rk ADD2 STH2rk
+  [@
+    LDAk #18 DEO
+    INC2 NEQ2k
+  ]?
+  POP2 POP2
+]!
+@buff \_0@-1- \@bufsiz ". 00
+

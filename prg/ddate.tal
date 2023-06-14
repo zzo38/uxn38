@@ -1,0 +1,57 @@
+\\ Discordian date
+\\ (Public domain)
+
+|0100
+  say "Today 20 "is 20 00
+  #00c2 DEI2 DUP2
+  #011d NEQ2 [? say "St. 20 "Tib's 20 "Day 00 !skip ]@
+  \\ Convert Gregorian date to number of days, excluding St. Tib's Day
+  SWP #0007 SFT2 ;days ADD2 LDA2 ADD2
+  \\ Discordian day of week
+  STH2k LIT2r 0005 DIV2rk MUL2r SUB2r
+  lsay :wday
+  say ", 20 00
+  \\ Discordian month and day of month
+  #0049 DIV2k STH2k MUL2 SUB2
+  lsay :month
+  INC2 number
+@skip
+  say ", 20 "YOLD 00
+  \\ Convert AD to YOLD
+  #c0 DEI2 #048e ADD2 number
+  say ". 0a 00 #800f DEO
+
+@days
+  ffff 001e 003a 0050 0077 0096 00b4 00d3 00f2 0110 012f 014d
+
+@wday :&0 :&1 :&2 :&3 :&4
+  &0 "Sweetmorn 00 JMP2
+  &1 "Boomtime 00 JMP2
+  &2 "Pungenday 00 JMP2
+  &3 "Prickle-Prickle 00 JMP2
+  &4 "Setting 20 "Orange 00 JMP2
+
+@month :&0 :&1 :&2 :&3 :&4
+  &0 "Chaos 00 JMP2
+  &1 "Discord 00 JMP2
+  &2 "Confusion 00 JMP2
+  &3 "Bureaucracy 00 JMP2
+  &4 "The 20 "Aftermath 00 JMP2
+
+@lsay
+  STH2r DUP2r ADD2r STH2k LDA2r ADD2r LDA2r INC2 INC2
+@say
+  [@ LDArk LITr 18 DEOr INC2r LDArk STHr ]? INC2r JMP2r
+
+@number
+  #2018 DEO
+  LITr 00
+  [@
+    #000a DIV2k STH2k MUL2 SUB2
+    STH2 SWP2r STH2r
+    NIPr LITr 30 ADDr
+  ORAk ]?
+  POP2
+  [@ STHr #18 DEO STHrk ]?
+  POPr
+  JMP2r

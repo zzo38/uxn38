@@ -1363,13 +1363,28 @@ static int stdin_thread_fn(void*unused) {
 
 static void set_datetime(char*s) {
   int i=2;
-  i=strtol(s,&s,10);
-  PUT16(device[12].d,i);
-  if(*s) s++;
-  i=2;
-  while(*s && i<15) {
-    device[12].d[i++]=strtol(s,&s,10);
+  if(*s=='@') {
+    struct tm r;
+    time_t t=strtoll(s+1,0,10);
+    if(use_utc) gmtime_r(&t,&r); else localtime_r(&t,&r);
+    PUT16(device[12].d,r.tm_year+1900);
+    device[12].d[2]=r.tm_mon;
+    device[12].d[3]=r.tm_mday;
+    device[12].d[4]=r.tm_hour;
+    device[12].d[5]=r.tm_min;
+    device[12].d[6]=r.tm_sec;
+    device[12].d[7]=r.tm_wday;
+    PUT16(device[12].d+8,r.tm_yday);
+    device[12].d[10]=r.tm_isdst;
+  } else {
+    i=strtol(s,&s,10);
+    PUT16(device[12].d,i);
     if(*s) s++;
+    i=2;
+    while(*s && i<15) {
+      device[12].d[i++]=strtol(s,&s,10);
+      if(*s) s++;
+    }
   }
 }
 
@@ -1553,7 +1568,6 @@ int main(int argc,char**argv) {
     }
   }
   if(use_console) device[1].out=console_out;
-  if(device[12].d[15]) device[12].d[15]=0; else device[12].in=datetime_in;
   if(optind+1<argc) strncpy(uxnfile0.name,argv[optind+1],4095);
   if(optind+2<argc) strncpy(uxnfile1.name,argv[optind+2],4095);
   restart:

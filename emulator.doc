@@ -32,13 +32,23 @@
   time it is read. If you put less numbers than expected, then zero will
   be used for the remaining values; however, some programs will use these
   values to seed a random number generator and will not work correctly if
-  they are zero.
+  they are zero. (Note that the month number is zero-based, while the day
+  number is one-based.)
+
+-T @unixtime
+  Use a fixed value for the date/time like the other -T does, but treat
+  the argument as UNIX time if the argument starts with a at sign; it will
+  be converted to the corresponding date/time in the Gregorian calendar.
+  In this case, the presence or absence of the -Z switch does matter,
+  since it will convert it to local time if the -Z switch is not specified
+  or to UTC if the -Z switch is specified.
 
 -Y
   Enable file system access including writing.
 
 -Z
-  Use UTC instead of local time. (Has no effect in combination with -T.)
+  Use UTC instead of local time. (Has no effect in combination with -T,
+  unless the UNIX time variant of -T is used.)
 
 -a #
   Set audio. See the below section about audio for details. If both -a and

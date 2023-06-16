@@ -1,0 +1,4 @@
+\\ (Public domain)
+|0100 [; #10 DEO2 BRK ]@ #e685 #2012 DEI STHk ORA ADD GTH
+[? STHrk #1f AND #0d STHk GTH [? ADDr LITr 00 ]@ SUBr ]@
+LITr 18 DEOr #0417 DEI NEQ [? #800f DEO ]@ BRK

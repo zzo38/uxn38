@@ -1514,6 +1514,17 @@ static void set_other_program(const char*s) {
   }
 }
 
+static void set_palette(char*s) {
+  int p=palet<<3;
+  FILE*f=fmemopen(s,strlen(s),"r");
+  if(!f) err(1,"Error with fmemopen during parsing command-line arguments");
+  while(p<64 && fscanf(f,"%2hhX%2hhX%2hhX",&colors[p].r,&colors[p].g,&colors[p].b)) {
+    p++;
+    fscanf(f,"%*[, ]");
+  }
+  fclose(f);
+}
+
 int main(int argc,char**argv) {
   int i,j;
   for(i=0;i<16;i++) {
@@ -1546,7 +1557,7 @@ int main(int argc,char**argv) {
     case 'i': hide_cursor=1; break;
     case 'j': joypad_repeat=1; break;
     case 'n': use_screen=0; break;
-    case 'p': palet=strtol(optarg,0,10)&7; break;
+    case 'p': palet=strtol(optarg,0,10)&7; if(*optarg && optarg[1]=='=') set_palette(optarg+2); break;
     case 'q': use_console=0; break;
     case 's': scroll_size=strtol(optarg,0,10); break;
     case 't': timer_rate=strtol(optarg,0,10); break;

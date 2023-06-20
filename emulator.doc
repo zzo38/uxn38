@@ -81,6 +81,9 @@
 -p #
   Select the palette. Valid palette numbers are 0 to 7, where 7 is the
   default setting and means that the running Uxn program can set colours.
+  If you follow the palette number by a equal sign and then RGB hex codes
+  then it will define that palette. Specify eight RGB colours each of which
+  is six hex digits, with commas in between.
 
 -q
   Disable standard I/O.
@@ -234,7 +237,8 @@ emulator to the program), ? for parameters that may be input and/or output,
 
 03 device_id uuid% >version ?extra%
   Loads a nonstandard device, or a nonstandard command for an existing
-  device or that applies globally; see below section for details.
+  device or that applies globally; see below section for details. This is
+  called a "UUID-based extension".
 
 a0 offset%
   Given a 32-bit offset, seek the currently opened file to the specified
@@ -299,7 +303,7 @@ attempt to write anything here, and MUST NOT override any devices.
 
 === Implemented extensions ===
 
-This section lists the "03 extensions" (see above) that are implemented in
+This section lists the UUID-based extensions that are implemented in
 this emulator (the -x switch is required, since they use nonstandard
 expansion commands to activate them).
 

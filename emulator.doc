@@ -238,10 +238,10 @@ emulator to the program), ? for parameters that may be input and/or output,
 
 a0 offset%
   Given a 32-bit offset, seek the currently opened file to the specified
-  absolute offset. (You must open the file first, by attempting to read
-  from or write to it; you can read/write zero bytes to open it without
-  reading/writing anything.) (The effect of seeking (absolute or relative)
-  when a file is opened in append mode is unspecified.)
+  absolute offset. (The effect of seeking (absolute or relative) when a
+  file is opened in append mode is unspecified.) If the file is not already
+  open, it is opened for reading and writing (the append flag is ignored);
+  if writing is not allowed, then it is opened for reading only.
 
 a1 offset%
   Given a signed 32-bit offset, seek the currently opened file to the

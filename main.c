@@ -439,7 +439,7 @@ static Uint32 files_seek(UxnFile*uf,Uint8 mode,Uint32 len) {
 }
 
 static int files_set(Device*dev,int rw) {
-  // rw: 0(close) 1(read) 2(write)
+  // rw: 0(close) 1(read) 2(write) 3(both)
   // return: 1 if file opened, 0 if not opened
   Uint8 m=dev->d[7];
   UxnFile*uf=dev->aux;
@@ -467,6 +467,16 @@ static int files_set(Device*dev,int rw) {
       return 1;
     } else {
       warn("Cannot open file '%s' for writing",uf->name);
+    }
+  } else if(rw==3) {
+    if(allow_write && (uf->file=fopen(uf->name,"r+"))) {
+      uf->mode=4;
+      return 1;
+    } else if(uf->file=fopen(uf->name,"r")) {
+      uf->mode=1;
+      return 1;
+    } else {
+      warn("Cannot open file '%s' for reading/writing",uf->name);
     }
   }
   return 0;
@@ -586,6 +596,7 @@ static void files_exp(Device*dev,Uint16 addr) {
     case 0 ... 2:
       x=GET16(mem+addr+1)<<16;
       x|=GET16(mem+addr+3);
+      if(!uf->mode) files_set(dev,3);
       files_seek(uf,mem[addr]&15,x);
       break;
     case 3:

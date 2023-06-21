@@ -101,6 +101,13 @@ typedef struct {
   Uint8 vol[2];
 } UxnAudio;
 
+typedef struct {
+  Uint8*data;
+  Uint32 addr;
+  Uint16 len;
+  Uint8 kind,stage;
+} Script;
+
 static SDL_Color colors[64]={
   // 0
   {0xFF,0xFF,0xFF,0},
@@ -226,6 +233,10 @@ static Uint8 layers;
 static Uint8 palet=7;
 static Uint8 eof_trigger=0;
 static Uint8 touch_mode=0;
+
+static Uint16 scriptc;
+static Script*scriptv;
+static FILE*scriptf;
 
 static Sint32*audio_option;
 static SDL_AudioSpec audiospec;
@@ -1525,6 +1536,87 @@ static void set_palette(char*s) {
   fclose(f);
 }
 
+static void set_script(char*s) {
+  static size_t siz;
+  Script o={0,0,0,0,0};
+  if(!scriptf) {
+    scriptf=open_memstream((char**)&scriptv,&siz);
+    if(!scriptf) err(1,"Error with open_memstream during parsing command-line arguments");
+  }
+  if(*s=='@') {
+    char*line=0;
+    size_t line_size=0;
+    FILE*fp=fopen(s+1,"r");
+    if(!fp) err(1,"Cannot open file \"%s\"",s+1);
+    while(getline(&line,&line_size,fp)>0) {
+      s=line+strlen(line);
+      while(s>line && (s[-1]=='\r' || s[-1]=='\n' || s[-1]==' ' || s[-1]=='\t')) *--s=0;
+      if(*s=='@') errx(1,"Nested file in -m not allowed");
+      if(*s && *s!='#') set_script(s);
+    }
+    fclose(fp);
+    free(line);
+  } else {
+    Uint8 b;
+    if(*s=='.') o.stage=1,s++;
+    if(*s>'f') o.kind=*s++;
+    o.addr=strtoll(s,&s,16);
+    if(*s=='=') {
+      s++;
+      if(strlen(s)>=0x1FFFF) errx(1,"Argument too long");
+      o.data=malloc(strlen(s)/2+1);
+      if(!o.data) err(1,"Allocation failed");
+      while(*s && s[1]) {
+        if(!sscanf(s,"%2hhX",&b)) break;
+        o.data[o.len++]=b;
+        s+=2;
+      }
+      if(*s) errx(1,"Syntax error in -m");
+    } else if(*s) {
+      errx(1,"Syntax error in -m");
+    }
+    if(o.kind || o.len) {
+      if(!fwrite(&o,sizeof(Script),1,scriptf)) err(1,"Cannot write to memory stream");
+      ++scriptc;
+    }
+  }
+}
+
+static void do_script(Uint8 stage) {
+  Uint8 u=use_extension;
+  Uint16 n,i,j;
+  Script*o;
+  use_extension=1;
+  for(n=0;n<scriptc;n++) if(scriptv[n].stage==stage) {
+    o=scriptv+n;
+    switch(o->kind) {
+      case 0: // Memory write
+        memcpy(mem+o->addr,o->data,o->len);
+        break;
+      case 'p': // Device port (including trigger)
+        j=o->addr;
+        for(i=0;i<o->len;i++) {
+          device[(j>>4)&15].d[j&15]=o->data[i];
+          device[(j>>4)&15].out(device+((j>>4)&15),j&15);
+          j++;
+        }
+        break;
+      case 's': // Device port (set only)
+        j=o->addr;
+        for(i=0;i<o->len;i++) {
+          device[(j>>4)&15].d[j&15]=o->data[i];
+          j++;
+        }
+        break;
+      case 'x': // Execute
+        run(o->addr);
+        break;
+      default: errx(1,"Unrecognized command -m%c",o->kind);
+    }
+  }
+  use_extension=u;
+}
+
 int main(int argc,char**argv) {
   int i,j;
   for(i=0;i<16;i++) {
@@ -1538,7 +1630,7 @@ int main(int argc,char**argv) {
   device[11].aux=&uxnfile1;
   device[12].in=datetime_in;
   inf=stdin; outf=stdout;
-  while((i=getopt(argc,argv,"+ADFIJ:NOQST:YZa:de:h:ijnp:qs:t:w:xyz:"))>0) switch(i) {
+  while((i=getopt(argc,argv,"+ADFIJ:NOQST:YZa:de:h:ijm:np:qs:t:w:xyz:"))>0) switch(i) {
     case 'D': scrflags|=SDL_DOUBLEBUF; break;
     case 'F': scrflags|=SDL_FULLSCREEN; break;
     case 'I': use_thread=1; break;
@@ -1556,6 +1648,7 @@ int main(int argc,char**argv) {
     case 'h': default_height=strtol(optarg,0,10); break;
     case 'i': hide_cursor=1; break;
     case 'j': joypad_repeat=1; break;
+    case 'm': set_script(optarg); break;
     case 'n': use_screen=0; break;
     case 'p': palet=strtol(optarg,0,10)&7; if(*optarg && optarg[1]=='=') set_palette(optarg+2); break;
     case 'q': use_console=0; break;
@@ -1569,6 +1662,12 @@ int main(int argc,char**argv) {
   }
   if(optind==argc) errx(1,"Required argument missing");
   rom_name=argv[optind];
+  if(use_console) device[1].out=console_out;
+  if(scriptf) {
+    fclose(scriptf);
+    if(!scriptv) err(1,"Allocation failed");
+    do_script(0);
+  }
   load_rom();
   if(use_screen) {
     if(zoom<1) errx(1,"Zoom out of range");
@@ -1589,13 +1688,13 @@ int main(int argc,char**argv) {
       SDL_JoystickEventState(SDL_ENABLE);
     }
   }
-  if(use_console) device[1].out=console_out;
   if(optind+1<argc) strncpy(uxnfile0.name,argv[optind+1],4095);
   if(optind+2<argc) strncpy(uxnfile1.name,argv[optind+2],4095);
   restart:
   size_changed=1;
   ds.p=rs.p=0;
   device[1].d[7]=(optind+1==argc)?0:1;
+  if(scriptc) do_script(1);
   run(0x0100);
   if(device[1].d[0] || device[1].d[1]) for(i=optind+1;i<argc;i++) {
     for(j=0;argv[i][j];j++) {
@@ -1612,6 +1711,7 @@ int main(int argc,char**argv) {
     if(use_thread) SDL_CreateThread(stdin_thread_fn,0);
     while(run_screen()) {
       for(i=0;i<15;i++) for(j=0;j<16;j++) device[i].d[j]=0;
+      if(scriptc) do_script(0);
       load_rom();
       goto restart;
     }

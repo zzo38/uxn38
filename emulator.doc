@@ -73,6 +73,10 @@
 -j
   Enable key repeat for joypad emulation.
 
+-m #
+  Specify memory writes and device writes to do before or after loading the
+  file. See the "Memory/device scripts" section below for details.
+
 -n
   Disable GUI. Either this switch or -I is required in order to read stdin.
   If neither -n nor -I is specified, then stdin cannot be read (although
@@ -322,4 +326,39 @@ expansion commands to activate them).
   the high to low nybble of each being red, green, blue, unused (zero).
   What happens if you then try to change colours using the colour ports
   after doing this, is not specified.
+
+
+=== Memory/device scripts ===
+
+A command with the -m switch has the subcommands which have the format of
+an optional "." to indicate executed after instead of before loading, and
+then an optional letter "g" to "z" to specify the specific command (if none
+is specified, then it is a memory command), and then the address in hex,
+and then optionally = and the data in hex. The address is treated as a pure
+number while the data is a sequence of bytes so the number of digits must
+be an even number.
+
+It can also optionally be @ and a file name, in which case the commands are
+loaded from a file. The file cannot itself have @ commands, and it may have
+lines starting with # as comments.
+
+The subcommands are:
+
+Memory (no letter)
+  Write memory starting at the specified address.
+
+Device trigger (p)
+  Write and trigger devices starting at the specified address. If there are
+  multiple bytes of data, then multiple consecutive ports are written to
+  and are triggered.
+
+Device set (s)
+  Same as device trigger but omit the trigger; only writes are done.
+
+Execute (x)
+  Execute uxn code at the specified address, which must be nonzero, and
+  cannot be in expanded memory. (The data of this command is not used.)
+
+During the execution of any of these commands, it behaves as though the -x
+switch is specified, even if it isn't specified.
 

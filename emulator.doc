@@ -268,6 +268,11 @@ b_ ?offset%
 
 Nonstandard ports of devices are:
 
+16
+  Input flags. Currently only the low bit is used (the rest must be clear).
+  If the low bit is set, then EOF trigger is enabled; the vector is called
+  on EOF, with the type and input both set to zero.
+
 36*/46*/56*/66*
   Detune register. This is treated as sixteen fraction bits, and is then
   added to 1.0 and multiplied by the frequency which has been specified by
@@ -310,13 +315,6 @@ attempt to write anything here, and MUST NOT override any devices.
 This section lists the UUID-based extensions that are implemented in
 this emulator (the -x switch is required, since they use nonstandard
 expansion commands to activate them).
-
-5afdcdfe-e263-11ed-9634-002618745416
-  The device number must be 0x10. This will enable calling the stdio vector
-  on EOF; the type will be zero in this case. The version will be 1 (but
-  this only means that the emulator supports this feature; it does not mean
-  that stdin is connected to something that actually has a EOF). This
-  implementation requires the -n switch to be used to support this command.
 
 80175132-e263-11ed-b8c9-002618745416
   Allows setting separate foreground and background colours. The device

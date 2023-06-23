@@ -231,8 +231,8 @@ static volatile Uint8 timer_expired=0;
 static SDL_Surface*screen;
 static Uint8 layers;
 static Uint8 palet=7;
-static Uint8 eof_trigger=0;
 static Uint8 touch_mode=0;
+static SDL_cond*stdin_cond;
 
 static Uint16 scriptc;
 static Script*scriptv;
@@ -879,13 +879,9 @@ static void run_audio(void) {
 }
 
 static void do_extension_by_uuid(Uint16 addr) {
-  static const Uint8 uuid_eof[]="\x5A\xFD\xCD\xFE\xE2\x63\x11\xED\x96\x34\x00\x26\x18\x74\x54\x16";
   static const Uint8 uuid_8color[]="\x80\x17\x51\x32\xE2\x63\x11\xED\xB8\xC9\x00\x26\x18\x74\x54\x16";
   int i;
-  if(mem[addr+1]==0x10 && !use_screen && !memcmp(mem+addr+2,uuid_eof,16)) {
-    eof_trigger=1;
-    mem[addr+18]=1;
-  } else if(mem[addr+1]==0x00 && use_screen && !memcmp(mem+addr+2,uuid_8color,16)) {
+  if(mem[addr+1]==0x00 && use_screen && !memcmp(mem+addr+2,uuid_8color,16)) {
     for(i=0;i<8;i++) {
       colors[i+070].r=(mem[addr+19+i+i]>>4)*0x11;
       colors[i+070].g=(mem[addr+19+i+i]&15)*0x11;
@@ -1321,7 +1317,12 @@ static int run_screen(void) {
       case SDL_USEREVENT+1:
         device[1].d[2]=e.user.code;
         device[1].d[7]=1;
+        if(e.user.data1) {
+          if(!(device[1].d[6]&1)) break;
+          device[1].d[7]=0;
+        }
         run(GET16(device[1].d));
+        SDL_CondBroadcast(stdin_cond);
         break;
       case SDL_JOYAXISMOTION:
         if(!joy_axis_mode) break;
@@ -1375,10 +1376,18 @@ static int run_screen(void) {
 static int stdin_thread_fn(void*unused) {
   int c;
   SDL_Event e;
+  SDL_mutex*mut=SDL_CreateMutex();
+  SDL_LockMutex(mut);
   e.type=SDL_USEREVENT+1;
+  e.user.data1=0;
   while((c=fgetc(inf))>=0) {
     e.user.code=c;
-    SDL_PushEvent(&e);
+    while(SDL_PushEvent(&e)) SDL_CondWaitTimeout(stdin_cond,mut,timer_rate?:10);
+  }
+  if(use_extension) {
+    e.user.code=0;
+    e.user.data1="";
+    while(SDL_PushEvent(&e)) SDL_CondWaitTimeout(stdin_cond,mut,timer_rate?:10);
   }
   return 0;
 }
@@ -1708,7 +1717,10 @@ int main(int argc,char**argv) {
   }
   if(use_screen) {
     if(size_changed) set_screen_mode(scr_w,scr_h);
-    if(use_thread) SDL_CreateThread(stdin_thread_fn,0);
+    if(use_thread) {
+      stdin_cond=SDL_CreateCond();
+      SDL_CreateThread(stdin_thread_fn,0);
+    }
     while(run_screen()) {
       for(i=0;i<15;i++) for(j=0;j<16;j++) device[i].d[j]=0;
       if(scriptc) do_script(0);
@@ -1723,7 +1735,7 @@ int main(int argc,char**argv) {
       device[1].d[2]=i;
       run(GET16(device[1].d));
     }
-    if(eof_trigger) {
+    if(use_extension && (device[1].d[6]&1)) {
       device[1].d[2]=device[1].d[7]=0;
       run(GET16(device[1].d));
     }

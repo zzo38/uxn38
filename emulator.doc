@@ -316,14 +316,9 @@ This section lists the UUID-based extensions that are implemented in
 this emulator (the -x switch is required, since they use nonstandard
 expansion commands to activate them).
 
-80175132-e263-11ed-b8c9-002618745416
-  Allows setting separate foreground and background colours. The device
-  number must be zero, and the version will be 1. The data is eight 16-bit
-  numbers, for the colours in order background 0 to 3 and then foreground 0
-  to 3 (although note that foreground 0 is not normally meaningful), with
-  the high to low nybble of each being red, green, blue, unused (zero).
-  What happens if you then try to change colours using the colour ports
-  after doing this, is not specified.
+See the file extension.doc for the definition of the extensions.
+
+* 80175132-e263-11ed-b8c9-002618745416
 
 
 === Memory/device scripts ===

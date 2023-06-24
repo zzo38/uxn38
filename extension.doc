@@ -1,0 +1,87 @@
+This document describes the UUID-based extensions. Not all of these are
+currently implemented, and some are currently a draft.
+
+I do not have any intention that any of these should be a part of the
+standard uxn/varvara, although some other emulator authors may choose to
+implement none, some, or all of them in their own emulators, as well as
+their own extensions.
+
+Most programs should not need these extensions, although some might be
+able to use then optionally. (More rarely, some programs might require
+one or more of these extensions, but this is generally discouraged.)
+
+
+=== 80175132-e263-11ed-b8c9-002618745416 (Colours) ===
+
+Allows setting separate foreground and background colours. The device
+number must be zero, and the version will be 1. The data is eight 16-bit
+numbers, for the colours in order background 0 to 3 and then foreground 0
+to 3 (although note that foreground 0 is not normally meaningful), with the
+high to low nybble of each being red, green, blue, unused (zero). What
+happens if you then try to change colours using the colour ports after
+doing this, is not specified.
+
+
+=== c7e5d57e-1201-11ee-bee4-002618745416 (Sequencer) ===
+
+(DRAFT)
+
+This will make available a audio sequencer device, which can be used for
+music playback with precise timing. The current version number is 1.
+
+The ports are:
+
+x0 - Vector *
+x2 - Sequencer channels / reset
+x3 - Override channels
+
+The sequencer channels/reset port has the low four bits for the channels
+that are used by the sequencer, where bit0 is the first channel; the high
+four bits should be clear. Writing anything to this port will clear the
+sequencer buffer and reset the sequencer.
+
+The override channels port has the same format as the sequencer channels
+port, although in this case the bits are set to temporarily suppress the
+sequencer for these channels. The sequencer will still run and those
+channels can still be written by the sequencer vector and will fill up
+the sequencer buffer, but the audio from those channels will not be played
+from the sequencer buffer, instead acting like the sequencer is disabled
+for the purpose of the audio output. Clearing those bits in this port will
+then allow playback of those channels from the sequencer buffer. This does
+not block timing; the corresponding channels in the sequencer buffer are
+still "played" but will be muted.
+
+The vector will be called at unpredictable times, and the number of times
+it will be called is also unpredictable (and may even be zero, e.g. if
+the audio is disabled by the user). However, the contents of the audio
+registers which the sequencer is enabled for will then be played back, at
+a rate of one frame for each time this vector is called.
+
+The timing of the sequencer vector will be guaranteed to not interrupt any
+other vectors and to be called as many times as necessary to fill up the
+sequencer buffer for the amount of time that the music will be played.
+
+If the sequencer is enabled, then those channels should not be touched
+outside of the sequencer vector unless the override bits are set.
+
+Also note that since the sequencer vector timing is unpredictable, you
+should not use it to store stuff used by other parts of the program nor
+read other timing-sensitive things, including the date/time device (which
+will return the current date/time and not necessarily the time that the
+music will be audible).
+
+An implementation should ensure that the values for the audio channels
+which are assigned to the sequencer are retained for sequencer callbacks
+independently from their access by code outside of sequencer callbacks,
+so that channel overrides will work correctly. However, the initial values
+after the sequencer has been reset might be either zero or the previously
+set values by the sequencer or the values that have been set before the
+sequencer was enabled.
+
+The sequencer callback itself should never touch the sequencer channels
+port or the override channels port, although it is allowed to change the
+vector so that the next call will be at a different address.
+
+If this extension is not available, then programs should use the screen
+vector for audio timing.
+

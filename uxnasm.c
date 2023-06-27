@@ -4,6 +4,7 @@ exit
 #endif
 
 #include <stdio.h>
+#include <string.h>
 
 /*
 Copyright (c) 2021-2023 Devine Lu Linvega, Andrew Alderwick
@@ -24,6 +25,7 @@ named in the above copyright notice.]
 #define MAXLABELS 0x400
 #define MAXMACROS 0x100
 #define MAXREFS 0x800
+#define MAXEXPS 0x80
 #define MAXITEMS 0x40
 
 #define TRIM 0x0100
@@ -32,6 +34,7 @@ named in the above copyright notice.]
 typedef unsigned char Uint8;
 typedef signed char Sint8;
 typedef unsigned short Uint16;
+typedef unsigned int Uint32;
 
 typedef struct {
 	char name[0x40], items[MAXITEMS][0x40];
@@ -49,13 +52,21 @@ typedef struct {
 } Reference;
 
 typedef struct {
+	char name[0x40];
+	Uint32 offset,len;
+	Uint8 kind;
+} ExpItem;
+
+typedef struct {
 	Uint8 data[LENGTH];
 	unsigned int ptr, length;
-	Uint16 llen, mlen, rlen;
+	Uint16 llen, mlen, rlen, xlen;
 	Label labels[MAXLABELS];
 	Macro macros[MAXMACROS];
 	Reference refs[MAXREFS];
+	ExpItem exps[MAXEXPS];
 	char scope[0x40];
+	Uint32 total;
 } Program;
 
 static Program p;
@@ -65,6 +76,8 @@ static Uint16 sstack[256];
 static int bsptr,bcnt;
 static Uint16 bstack[256];
 static char spec_rune[128];
+static Uint16 exstart;
+static FILE*subas;
 
 /* clang-format off */
 
@@ -199,7 +212,7 @@ makereference(char *scope, char *label, Uint16 addr)
 	if(p.rlen == MAXREFS)
 		return error("References limit exceeded", label);
 	r = &p.refs[p.rlen++];
-	if(label[1] == '&')
+	if(label[1] == '&' && scope)
 		scpy(sublabel(subw, scope, label + 2), r->name, 0x40);
 	else {
 		int pos = spos(label + 1, '/');
@@ -213,6 +226,16 @@ makereference(char *scope, char *label, Uint16 addr)
 	r->rune = label[0];
 	r->addr = addr;
 	return 1;
+}
+
+static int makeexp(Uint8 kind,char*name,Uint32 len,Uint8 misc) {
+  ExpItem*e;
+  if(p.xlen==MAXEXPS) return error("Expansion limit exceeded","");
+  e=p.exps+(p.xlen++);
+  if(name) scpy(name,e->name,0x40); else e->name[0]=misc,e->name[1]=0;
+  e->kind=kind;
+  e->len=len;
+  return 1;
 }
 
 static int
@@ -319,6 +342,7 @@ static int special_calc(const char*w) {
     case 'P': if(ssptr<2) return 0; a=sstack[--ssptr]; b=sstack[--ssptr]; if(a==0xFFFF) return 0; p.data[a]=b>>8; p.data[a+1]=b&255; break;
     case 'w': if(ssptr<1) return 0; a=sstack[--ssptr]; writebyte(a); break;
     case 'W': if(ssptr<1) return 0; a=sstack[--ssptr]; writeshort(a,0); break;
+    case 'x': if(ssptr<1) return 0; a=sstack[--ssptr]; if(!makeexp(0,0,a,0)) return 0; break;
     case '(': if(ssptr<1) return 0; if(!sstack[--ssptr]) break; while(*w && *w!=')') w++; break;
     case ')': /* do nothing */ break;
     case '[': if(ssptr<1) return 0; if(sstack[--ssptr]) break; while(*w && *w!=']') w++; break;
@@ -353,6 +377,15 @@ static int make_tile(int h,const char*w) {
     return 0;
   }
   if(p.length<p.ptr) p.length=p.ptr;
+  return 1;
+}
+
+static int exp_file(char*w) {
+  FILE*f=fopen(w,"rb");
+  if(!f) return error("Cannot open file",w);
+  fseek(f,0,SEEK_END);
+  if(!makeexp(2,w,ftell(f),0)) return 0;
+  fclose(f);
   return 1;
 }
 
@@ -415,6 +448,7 @@ parse(char *w, FILE *f)
 		}
 		break;
 	case '@': /* label */
+		if(w[1]=='\\') break;
 		if(!makelabel(w + 1))
 			return error("Invalid label", w);
 		scpy(w + 1, p.scope, 0x40);
@@ -491,8 +525,28 @@ parse(char *w, FILE *f)
 		    break;
 		  case '_': if(!special_calc(w+2)) return error("Special calculation error",w); break;
 		  case '-': case '=': if(!make_tile(w[1]=='=',w+2)) return error("Tile error",w); break;
+		  case '`': makereference(0,w+1,p.ptr); break;
+		  case '*': if(!makeexp('*',w+2,0,0)) return 0; break;
+		  case 'A': case 'C': case 'D':
+		    if(!sihx(w+1)) return error("Invalid hex literal",w);
+		    if(!makeexp(w[1],w+2,shex(w+2),0)) return 0;
+		    break;
+		  case 'B': case 'E': case 'F':
+		    if(w[2]>='0' && w[2]<='9') i=w[2]-'0';
+		    else if(w[2]>='a' && w[2]<='u') i=w[2]+10-'a';
+		    else return error("Invalid expanded memory alignment",w);
+		    if(!makeexp(w[1],0,0,i)) return 0;
+		    break;
+		  case '^':
+		    if(!exp_file(w+2)) return 0;
+		    break;
+		  case '+': w[1]='x'; makereference(0,w+1,1); break;
 		  default: return error("Invalid special",w);
 		}
+		break;
+	case '^': /* sub-assembly */
+		if(!makeexp('^',w+1,0,0)) return 0;
+		p.exps[p.xlen-1].len=p.ptr;
 		break;
 	case '[':
 	case ']':
@@ -521,6 +575,16 @@ parse(char *w, FILE *f)
 		  if(!parse(w,f)) return 0;
 		  snprintf(w,10,"\\%x\\",i);
 		  if(!makelabel(w)) return error("Invalid label",w);
+		  break;
+		} else if(w[1]=='^' && !w[2]) {
+		  if(*w=='[') {
+		    exstart=p.ptr;
+		  } else {
+		    if(p.ptr<exstart || p.ptr-exstart>0x40) return error("Too long inline expanded memory data",w);
+		    if(!makeexp(1,0,p.ptr-exstart,0)) return 0;
+		    memcpy(p.exps[p.xlen-1].name,p.data+exstart,p.ptr-exstart);
+		    p.ptr=p.length=exstart;
+		  }
 		  break;
 		}
 		/* fall through */
@@ -613,11 +677,141 @@ resolve(void)
 			p.data[r->addr + 1] = a & 0xff;
 			l->refs++;
 			break;
+		case '`':
+			p.ptr=r->addr;
+			if(!special_calc(r->name)) return error("Special calculation error", r->name);
+			break;
+		case 'x':
+			if(l=findlabel(r->name)) l->refs++;
+			break;
 		default:
 			return error("Unknown reference", r->name);
 		}
 	}
 	return 1;
+}
+
+static Uint32 expanded_block_length(int x) {
+  ExpItem*e;
+  Uint32 t=0;
+  int i;
+  for(i=x;i<p.xlen;i++) {
+    e=p.exps+i;
+    if(e->kind>='A' && e->kind<='F') break;
+    t+=e->len;
+  }
+  return t;
+}
+
+static int do_subassembly(ExpItem*e) {
+  Program ps=p;
+  Uint16 st=e->len;
+  Label*la;
+  int i,j;
+  if(!subas) {
+    subas=fopen(".uxn_subassembly","wb");
+    if(!subas) return error("Cannot open subassembly temporary file",".uxn_subassembly");
+  }
+  p.ptr=p.length=st;
+  p.llen=p.mlen=p.rlen=0;
+  for(i=0;i<ps.rlen;i++) if(ps.refs[i].rune=='x') {
+    for(j=0;j<ps.mlen;j++) if(scmp(ps.macros[j].name,ps.refs[i].name,0x40)) {
+      if(p.mlen==MAXMACROS) return error("Too many exports","");
+      p.macros[p.mlen++]=ps.macros[j];
+      goto found;
+    }
+    for(j=0;j<ps.llen;j++) if(scmp(ps.labels[j].name,ps.refs[i].name,0x40)) {
+      if(p.llen==MAXLABELS) return error("Too many exports","");
+      ps.labels[j].refs=1;
+      p.labels[p.llen++]=ps.labels[j];
+      goto found;
+    }
+    found: ;
+  }
+  if(!doinclude(e->name)) return error("Invalid include",e->name);
+  if(!resolve()) return error("Error resolving sub-assembly",e->name);
+  e->len=p.length-st;
+  if(e->len&~0xFFFF) return error("Length confusion error",e->name);
+  fwrite(p.data+st,e->len,1,subas);
+  for(i=0;i<p.rlen;i++) if(p.refs[i].rune=='x') {
+    la=findlabel(p.refs[i].name);
+    if(!la) return error("Invalid export from sub-assembly",p.refs[i].name);
+    if(ps.llen==MAXLABELS) return error("Too many exports from sub-assembly",e->name);
+    la->refs=1;
+    ps.labels[ps.llen++]=*la;
+  }
+  for(i=ps.xlen;i<p.xlen;i++) ps.exps[i]=p.exps[i];
+  ps.xlen=p.xlen;
+  st=e->len;
+  p=ps;
+  e->kind=3;
+  e->len=st;
+  return 1;
+}
+
+static int align_expanded(void) {
+  ExpItem*e;
+  Uint32 at=p.length-TRIM;
+  Uint32 x;
+  int i,j;
+  for(i=0;i<p.xlen;i++) {
+    e=p.exps+i;
+    e->offset=at;
+    if(e->kind>='A' && e->kind<='F') {
+      for(j=i+1;j<p.xlen;j++) {
+        if(p.exps[j].kind=='*') scpy(p.exps[j].name,p.scope,0x40);
+        if(p.exps[j].kind=='^' && !do_subassembly(p.exps+j)) return 0;
+        if(p.exps[j].kind>='A' && p.exps[j].kind<='F') break;
+      }
+    }
+    switch(e->kind) {
+      case '*': // label
+        p.ptr=at;
+        makelabel(e->name);
+        p.ptr=at>>16;
+        j=slen(e->name);
+        if(j>=0x3F) return error("Too long expanded memory label name",e->name);
+        e->name[j]='^';
+        e->name[j+1]=0;
+        makelabel(e->name);
+        break;
+      case '^': // sub-assembly
+        return error("Sub-assembly outside of expanded memory block",e->name);
+      case 'A': // absolute address
+        if(at>e->len) return error("Expanded memory absolute address overlapping",e->name);
+        at=e->len;
+        break;
+      case 'B': // align to beginning
+        if(at&((1<<*e->name)-1)) at=(at+(1<<*e->name))&-(1<<*e->name);
+        break;
+      case 'C': // fit into number of pages
+        x=expanded_block_length(i+1);
+        if(x>(e->len<<16)) return error("Expanded memory block is too big",e->name);
+        if(x+(at&0xFFFF)>(e->len<<16)) at=(at+0x10000)&-0x10000;
+        break;
+      case 'D': // start on page
+        if((at>>16)>e->len) return error("Expanded memory page overlapping",e->name);
+        if((at>>16)<e->len) at=e->len<<16;
+        break;
+      case 'E': // align to end
+        x=expanded_block_length(i+1);
+        if((at+x)&((1<<*e->name)-1)) at=((at+x+(1<<*e->name))&-(1<<*e->name))-x;
+        break;
+      case 'F': // align to fit
+        x=expanded_block_length(i+1);
+        if(x>(1<<*e->name)) return error("Expanded memory block does not fit in specified size","");
+        if((at&((1<<*e->name)-1))!=((at+x)&((1<<*e->name)-1))) at=(at+((1<<*e->name)-1))&-(1<<*e->name);
+        break;
+      default: at+=e->len;
+    }
+  }
+  p.total=at;
+  if(subas) {
+    fclose(subas);
+    subas=fopen(".uxn_subassembly","rb");
+    if(!subas) return error("Cannot open subassembly temporary file",".uxn_subassembly");
+  }
+  return 1;
 }
 
 static int
@@ -634,6 +828,8 @@ assemble(FILE *f)
 		  line_comment=0;
 		}
 	}
+	p.total=p.length;
+	if(p.xlen && !align_expanded()) return 0;
 	return resolve();
 }
 
@@ -647,12 +843,14 @@ review(char *filename)
 		else if(!p.labels[i].refs)
 			fprintf(stderr, "-- Unused label: %s\n", p.labels[i].name);
 	fprintf(stderr,
-		"Assembled %s in %d bytes(%.2f%% used), %d labels, %d macros.\n",
+		"Assembled %s in %d bytes(%.2f%% used), %d labels, %d macros, %d references.\n",
 		filename,
 		p.length<TRIM?0:p.length-TRIM,
 		p.length<TRIM?0:((p.length - TRIM) / 652.80),
 		p.llen,
-		p.mlen);
+		p.mlen,
+		p.rlen);
+	if(p.xlen) fprintf(stderr,"Expanded memory: %u bytes (%u pages), %d items.\nTotal: %u bytes.\n",p.total-p.length,(((p.total+0xFFFF)>>16)?:1)-1,p.xlen,p.total-TRIM);
 }
 
 static void send_name_output(FILE*dst) {
@@ -660,10 +858,50 @@ static void send_name_output(FILE*dst) {
   for(i=0;i<p.llen;i++) fprintf(dst,"|%04x @%s\n",p.labels[i].addr,p.labels[i].name);
 }
 
+static void send_expanded(FILE*dst) {
+  FILE*f;
+  ExpItem*e;
+  Uint32 at=p.length;
+  Uint32 x;
+  int i;
+  for(i=0;i<p.xlen;i++) {
+    e=p.exps+i;
+    if(e->offset>at) {
+      x=e->offset-at;
+      while(x--) fputc(0,dst);
+    }
+    at=e->offset;
+    switch(e->kind) {
+      case 1: // inline data
+        fwrite(e->name,e->len,1,dst);
+        at+=e->len;
+        break;
+      case 2: // data from file
+        f=fopen(e->name,"rb");
+        if(f) {
+          x=e->len;
+          while(x--) fputc(fgetc(f),dst);
+          at+=e->len;
+          fclose(f);
+        } else {
+          error("Cannot open file",e->name);
+        }
+        break;
+      case 3: // sub-assembly
+        if(!fread(p.data,e->len,1,subas)) error("Error reading temporary file",".uxn_subassembly");
+        fwrite(p.data,e->len,1,dst);
+        at+=e->len;
+        break;
+    }
+  }
+}
+
 int
 main(int argc, char *argv[])
 {
 	FILE *src, *dst;
+	if(argc==2 && argv[1][0]=='@') printf("Program:%u Macro:%u Label:%u Reference:%u ExpItem:%u\n"
+	 ,(int)sizeof(Program),(int)sizeof(Macro),(int)sizeof(Label),(int)sizeof(Reference),(int)sizeof(ExpItem));
 	if(argc < 3)
 		return !error("usage", "input.tal output.rom [output.nam]");
 	if(!(src = fopen(argv[1], "r")))
@@ -676,6 +914,7 @@ main(int argc, char *argv[])
 		error("Assembly", "Output rom is empty.");
 	else
 		fwrite(p.data + TRIM, p.length - TRIM, 1, dst);
+	if(p.xlen) send_expanded(dst);
 	review(argv[2]);
 	if(argc>3 && argv[3][0]) {
 	  fclose(dst);

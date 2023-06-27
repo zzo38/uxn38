@@ -94,7 +94,8 @@ The following standard tokens are available:
  the input operands in the stack. (You cannot code the JCI, JMI, and JSI
  instructions in this way, although BRK can be coded in this way.)
 
- A name by itself to make a JSI instruction.
+ A name by itself to make a JSI instruction (if it does not match any
+ of the other tokens mentioned above).
 
 The following nonstandard tokens are available:
 
@@ -119,6 +120,11 @@ The following nonstandard tokens are available:
  \_ and further text is a special calculation; see the below section
  about special calculations. These are executed immediately at compile
  time, before the compiled program is written to the output file.
+
+ \` is like \_ but the calculation is deferred until when references
+ are being resolved. By this time, any references that come before this
+ command will already be resolved, and the memory containing them can
+ be read and overwritten by the calculation if desired.
 
  \- or \= followed by eight more characters and optionally ; will make
  a graphical tile; you should have eight such commands per tile, and
@@ -227,6 +233,8 @@ cannot write in the zero page or overwrite what is already written.
 W  ( value -- )  Write 16-bits at the current address and advance. You
 cannot write in the zero page or overwrite what is already written.
 
+x  ( length -- )  Add padding into expanded memory.
+
 ()  ( condition -- )  Put other commands in the () block; it will be
 executed only if the condition is zero, and skipped if nonzero. Conditional
 blocks of the same kind cannot be nested.
@@ -244,4 +252,67 @@ record will be like:   |xxxx @yyyy
 xxxx is four lowercase hex digits being the address of that label.
 
 yyyy is the name of that label.
+
+
+=== Expanded memory ===
+
+A nonstandard feature allows writing large files that have preset data in
+expanded memory. Any expanded memory data comes after the conventional
+memory data. It is possible that some data will fit in conventional memory
+in which case such data will be entered into conventional memory, but you
+can override this using alignment and padding commands.
+
+The following nonstandard tokens are used for expanded memory:
+
+ \* followed by a name will make a label that refers to the address within
+ expanded memory. The plain name refers to the low 16-bits of the address
+ and the name followed by ^ refers to the high 16-bits (the page number).
+ This also sets the initial scope name of any sub-assemblies that follow.
+
+ \^ followed by a file name is similar to \~ but writes the data into
+ expanded memory.
+
+ \B \E \F followed by a digit 0 to 9 or a letter a to u (representing a
+ number ten to thirty) will begin a new expanded memory block which is
+ aligned to begin or end at an address divisible by two to the power of
+ that number, or to fit into an aligned space with that size. For example,
+ \Bg will require the data to begin on a page boundary, while \Fg will
+ require this block to fit in a single page (which might be the same page
+ as the previous block if it fits).
+
+ \A followed by a number (which can be a 32-bit number) will begin a new
+ expanded memory block which begins at the specified absolute address. If
+ everything before it is already beyond that address, then it is an error.
+
+ \C followed by a number will begin a new expanded memory block which must
+ fit into the specified number of pages, otherwise it is an error. If
+ necessary, it will align it to a new page, but if the data is small enough
+ then this will be unnecessary and it will not do alignment.
+
+ \D followed by a number will begin a new expanded memory block which must
+ start on the specified page but not necessarily at the beginning.
+
+ [^ ]^ surround a block which will be entered into expanded memory. This
+ can contain assembly code which makes up to sixty-four bytes of data, and
+ should not contain any labels nor references (including anonymous labels
+ and references due to the [@ ]@ blocks). (However, \: is allowed.)
+
+ ^ followed by a file name makes a sub-assembly. This is similar to ~ but
+ the data which is assembled from that file is written to expanded memory
+ like \^ instead of like \~ does. This is parsed after the rest of the main
+ file is parsed, instead of before like the ~ command does. The initial
+ internal address in the sub-assembly, which is also the starting address
+ that data will be copied from, is the same as the outer address; you can
+ use | to change this if desired. (The intended use of this is for making
+ overlays which contain absolute addressing within the overlay. If you
+ only use relative addressing then this is not important.) A temporary file
+ named ".uxn_subassembly" will be created; it can safely be deleted.
+
+ \+ followed by a name of a label or macro will export that label or macro
+ to all sub-assemblies; inside of a sub-assembly it will export a name (you
+ cannot export a macro from a sub-assembly) into the main code (which can
+ be exported to later sub-assemblies, but not ones that come before). Even
+ if it is exported from the main code, a label defined by \* cannot be
+ referenced by sub-assemblies in the same or an earlier block than the \*
+ is in, but can be referenced by sub-assemblies in any later block.
 

@@ -237,7 +237,11 @@ emulator to the program), ? for parameters that may be input and/or output,
 
 02 >pages*
   Tells number of expanded memory pages. (This is the maximum valid value
-  for src_page and dst_page in expanded memory operations.)
+  for src_page and dst_page in expanded memory operations.) (If some of the
+  pages are read-only, then this is only the number of writable pages. The
+  number of writable pages might be less than the tital number of pages on
+  systems with insufficient memory but that is able to emulate larger
+  memory by reading from the program file instead.)
 
 03 device_id uuid% >version ?extra%
   Loads a nonstandard device, or a nonstandard command for an existing

@@ -22,6 +22,25 @@ happens if you then try to change colours using the colour ports after
 doing this, is not specified.
 
 
+=== 970b5a0c-2c44-11ee-ac3b-002618745416 (Screen compatibility flags) ===
+
+This extension defines compatibility flags for the screen device for use
+with older varvara programs. It is not meant to be called by the uxn
+program itself (although it can be); it is meant for use with the -mu flag.
+
+The device number should be 0x20, although the screen device ports will
+continue to work as they do (except for the changes by the flags).
+
+There is one byte of data in this extension. It consists of a bit field,
+where a bit which is clear means the older behaviour and a bit which is
+set corresponds to newer behaviour, generally.
+
+* bit0 = clear if drawing sprites with colour mode 0 is opaque, or set if
+it is transparent.
+
+Other bits are currently unused.
+
+
 === c7e5d57e-1201-11ee-bee4-002618745416 (Sequencer) ===
 
 (DRAFT)
@@ -84,4 +103,5 @@ vector so that the next call will be at a different address.
 
 If this extension is not available, then programs should use the screen
 vector for audio timing.
+
 

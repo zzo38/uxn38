@@ -183,8 +183,8 @@ static SDL_Color colors[64]={
   {0x99,0x22,0x44,0},
 };
 
-static const Uint8 blend[4][16]={
-  {0,0,0,0,1,4,1,1,2,2,4,2,3,3,3,4},
+static Uint8 blend[4][16]={
+  {4,0,0,0,1,4,1,1,2,2,4,2,3,3,3,4},
   {0,1,2,3,0,1,2,3,0,1,2,3,0,1,2,3},
   {1,2,3,1,1,2,3,1,1,2,3,1,1,2,3,1},
   {2,3,1,2,2,3,1,2,2,3,1,2,2,3,1,2},
@@ -233,6 +233,7 @@ static Uint8 layers;
 static Uint8 palet=7;
 static Uint8 touch_mode=0;
 static SDL_cond*stdin_cond;
+static Uint8 screencompat=0x01;
 
 static Uint16 scriptc;
 static Script*scriptv;
@@ -880,6 +881,7 @@ static void run_audio(void) {
 
 static void do_extension_by_uuid(Uint16 addr) {
   static const Uint8 uuid_8color[]="\x80\x17\x51\x32\xE2\x63\x11\xED\xB8\xC9\x00\x26\x18\x74\x54\x16";
+  static const Uint8 uuid_screencompat[]="\x97\x0B\x5A\x0C\x2C\x44\x11\xEE\xAC\x3B\x00\x26\x18\x74\x54\x16";
   int i;
   if(mem[addr+1]==0x00 && use_screen && !memcmp(mem+addr+2,uuid_8color,16)) {
     for(i=0;i<8;i++) {
@@ -891,6 +893,10 @@ static void do_extension_by_uuid(Uint16 addr) {
       SDL_SetColors(screen,colors+palet*8,0,8);
       picture_changed=1;
     }
+    mem[addr+18]=1;
+  } else if(mem[addr+1]==0x20 && use_screen && !memcmp(mem+addr+2,uuid_screencompat,16)) {
+    screencompat=mem[addr+19];
+    blend[0][0]=(screencompat&0x01?4:0);
     mem[addr+18]=1;
   }
 }
@@ -1616,6 +1622,11 @@ static void do_script(Uint8 stage) {
           device[(j>>4)&15].d[j&15]=o->data[i];
           j++;
         }
+        break;
+      case 'u': // Extension set
+        mem[o->addr]=3;
+        memcpy(mem+o->addr+1,o->data,o->len);
+        do_extension_by_uuid(o->addr);
         break;
       case 'x': // Execute
         run(o->addr);

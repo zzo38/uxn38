@@ -324,6 +324,8 @@ See the file extension.doc for the definition of the extensions.
 
 * 80175132-e263-11ed-b8c9-002618745416
 
+* 970b5a0c-2c44-11ee-ac3b-002618745416
+
 
 === Memory/device scripts ===
 
@@ -336,7 +338,7 @@ number while the data is a sequence of bytes so the number of digits must
 be an even number.
 
 It can also optionally be @ and a file name, in which case the commands are
-loaded from a file. The file cannot itself have @ commands, and it may have
+loaded from a file. The file cannot itself have @ commands, but it may have
 lines starting with # as comments.
 
 The subcommands are:
@@ -351,6 +353,14 @@ Device trigger (p)
 
 Device set (s)
   Same as device trigger but omit the trigger; only writes are done.
+
+Extension set (u)
+  The data is the same as the 03 expansion command but without the initial
+  03; it is automatically written into memory and executed as an expansion
+  command. (This is a shortcut for the specific case of loading an
+  extension that is not loaded by the uxn program itself, rather than
+  having to use the -m and -mp switches. The address can be omitted,
+  since the expansion command does not care about the address.)
 
 Execute (x)
   Execute uxn code at the specified address, which must be nonzero, and

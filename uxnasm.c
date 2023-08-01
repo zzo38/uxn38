@@ -59,6 +59,7 @@ typedef struct {
 
 typedef struct {
 	Uint8 data[LENGTH];
+	Uint8 lambda_stack[256], lambda_ptr, lambda_count;
 	unsigned int ptr, length;
 	Uint16 llen, mlen, rlen, xlen;
 	Label labels[MAXLABELS];
@@ -66,6 +67,7 @@ typedef struct {
 	Reference refs[MAXREFS];
 	ExpItem exps[MAXEXPS];
 	char scope[0x40];
+	char lambda[0x10];
 	Uint32 total;
 } Program;
 
@@ -226,6 +228,13 @@ makereference(char *scope, char *label, Uint16 addr)
 	r->rune = label[0];
 	r->addr = addr;
 	return 1;
+}
+
+static char*makelambda(int id) {
+	scpy("?lambda", p.lambda, 8);
+	p.lambda[7] = '0' + (id >> 0x4);
+	p.lambda[8] = '0' + (id & 0xf);
+	return p.lambda;
 }
 
 static int makeexp(Uint8 kind,char*name,Uint32 len,Uint8 misc) {
@@ -548,6 +557,13 @@ parse(char *w, FILE *f)
 		if(!makeexp('^',w+1,0,0)) return 0;
 		p.exps[p.xlen-1].len=p.ptr;
 		break;
+	case '{': /* lambda start */
+		p.lambda_stack[p.lambda_ptr++] = p.lambda_count;
+		makereference(p.scope, makelambda(p.lambda_count++), p.ptr + 1);
+		return writebyte(0x60) && writeshort(0xffff, 0);
+	case '}': /* lambda end */
+		if(!makelabel(makelambda(p.lambda_stack[--p.lambda_ptr])+1)) return error("Invalid label", w);
+		return writebyte(0x6f);
 	case '[':
 	case ']':
 		if(slen(w) == 1) break;

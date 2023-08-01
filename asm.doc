@@ -88,6 +88,12 @@ The following standard tokens are available:
  characters without any opcodes or delimiters. (If you need spaces, then
  you must use separate tokens such as 20 for spaces.)
 
+ { and } can be used around a lambda block (they can also be used for
+ macros as described above). The { represents a JSI to the matching } and
+ the } represents a STH2r instruction. In this way, the { } block is
+ skipped and the address of the beginning of the block (after the JSI
+ instruction) will be stored on the stack.
+
  An instruction opcode consists of three uppercase letters, optionally
  followed by any combination of instruction flags which can be "2" for
  16-bit operands, "r" to work with the other stack, and/or "k" to keep

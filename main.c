@@ -386,12 +386,26 @@ static Uint8 default_in(Device*misc1,Uint8 misc2) { return misc1->d[misc2&15]; }
 static void default_out(Device*misc1,Uint8 misc2) {}
 static void default_exp(Device*misc1,Uint16 misc2) {}
 
+static Uint8 system_in(Device*dev,Uint8 id) {
+  switch(id) {
+    case 4: return ds.p;
+    case 5: return rs.p;
+    default: return dev->d[id];
+  }
+}
+
 static void system_out(Device*dev,Uint8 id) {
   Uint16 x;
   switch(id) {
     case 3:
       x=GET16(dev->d+2);
       device[mem[x]>>4].exp(device+(mem[x]>>4),x);
+      break;
+    case 4:
+      ds.p=dev->d[4];
+      break;
+    case 5:
+      rs.p=dev->d[5];
       break;
     case 8 ... 13:
       colors[070].r=colors[074].r=(dev->d[8]>>4)*0x11;
@@ -1644,6 +1658,7 @@ int main(int argc,char**argv) {
     device[i].out=default_out;
     device[i].exp=default_exp;
   }
+  device[0].in=system_in;
   device[0].out=system_out;
   device[0].exp=system_exp;
   device[10].aux=&uxnfile0;

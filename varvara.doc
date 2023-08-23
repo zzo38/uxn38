@@ -28,6 +28,8 @@ In the below lists, asterisks indicate 16-bit ports.
 
 00 = Vector *
 02 = Expansion *
+04 = Primary stack count
+05 = Secondary stack count
 06 = Metadata *
 08 = Colours (red) *
 0A = Colours (green) *
@@ -42,6 +44,9 @@ operation, which is a record stored at that address; the first byte of
 that data is the operation code, and the rest are the arguments. See the
 below list of expansion operations.
 
+The stack counts are the number of bytes in the specified stack. They can
+be read and written; writing zero will clear the stack.
+
 The colours control the colours of the display, where the high nybble of
 each controls the value for colour index 0, and the low nybble of each
 controls the value for colour index 3.
@@ -54,11 +59,6 @@ Writing nonzero to the quit port terminates the program; the low seven bits
 of the number written is the exit code (if exit code is meaningful for the
 operating system that it is running on) (writing 0x80 exits with code 0
 which means successful).
-
-(In previous versions of this specification, port 02 is the data stack
-port and port 03 is the return stack port. The data stack and return stack
-ports have a different meaning in different implementations, and probably
-should not be used by most programs.)
 
 
 === Standard I/O ===

@@ -298,7 +298,11 @@ The parts of the command are:
 
 * Device number: A command that does not load or override a device into a
 device slot is zero, otherwise it is a nonzero multiple of sixteen. Some
-extensions and some implementations may have further restrictions.
+extensions and some implementations may have further restrictions. If this
+number is not a multiple of sixteen (but must be at least sixteen), then
+the low nybble indicates how many additional consecutive devices to be
+affected; e.g. #33 means to affect all four audio devices (the high nybble
+is 3 for the first audio device, and the low nybble 3 means the other 3).
 
 * UUID: Sixteen bytes, which identifies the extension.
 

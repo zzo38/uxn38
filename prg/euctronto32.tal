@@ -1,0 +1,61 @@
+\\ Convert EUC-TRON to TRON-32BE
+\\ (public domain)
+
+\\ (Note: This program does not (currently) attempt to convert ASCII to
+\\ JIS, therefore resulting in the "JIS-hybrid TRON-32", rather than the
+\\ "pure TRON-32".
+
+|0100
+  [& BRK STH2 #12 DEI JMP2r ]@ INC2rk LITr 10 DEO2r EQUrk JSRr
+
+  JSR2rk
+  DUP #7f GTH [?
+    \\ single byte
+    @single
+    #0018 DEOk DEOk DEOk NIP DEO
+    JMP2k
+  ]@
+  DUP #a0 LTH [?
+    \\ double byte JIS X 0208 or first plane of JIS X 0213
+    #7f AND
+    @double
+    #0018 DEO #2118 DEOk NIP DEO
+    JSR2rk
+    #7f AND #18 DEO
+    JMP2k
+  ]@
+  DUP #8e NEQ [?
+    \\ katakana
+    POP ;single JMP2rk
+  ]@
+  DUP #8f NEQ [?
+    \\ double byte JIS X 0212 or second plane of JIS X 0213
+    DUP EOR JSR2rk
+    DUP #ee LTH [? #5e SUB @ndouble NIP !double ]@
+    DUP #af GTH ?ndouble
+    ;jisx ADD2 LDA !double
+  ]@
+  \\ TRON character (now the code #88 to #8d is on stack, to save for later)
+  #8000  ( zone plane_add volume )
+  JSR2rk DUP #fe AND #90 NEQ [? ROT INC EOR #c0 MUL SWP JSR2rk ]@
+  [@ DUP #80 NEQ ?q POP INC JSR2rk ]!
+  @q  ( zone plane_add volume plane )
+  SWP #18 DEO
+  ADD #18 DEO
+  JSR2rk JSR2rk
+  ROT #0007 SFT2 ;zone ADD2 LDA2 JSR2
+  SUB2 SWP #18 DEOk NIP DEO JMP2k
+
+\_@a1'- \@jisx
+(  0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f  )
+     87 a2 88 89 8a a6 a7 8b a9 aa ab 8c 8d 8e 8f
+
+\_@0110"- \@zone :z8 :z9 :za :zb :zc :zd
+
+@z8 #8080 JMP2r
+@z9 #0080 JMP2r
+@za #8000 JMP2r
+@zb DUP2k EOR2 JMP2r
+@zc DUP #c0 LTH [? SWP #8040 JMP2r ]@ #2080 JMP2r
+@zd DUP #bf GTH [? #2000 JMP2r ]@ DUP #df GTH [? SWP #0040 ]@ #6060 JMP2r
+

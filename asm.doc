@@ -89,10 +89,9 @@ The following standard tokens are available:
  you must use separate tokens such as 20 for spaces.)
 
  { and } can be used around a lambda block (they can also be used for
- macros as described above). The { represents a JSI to the matching } and
- the } represents a STH2r instruction. In this way, the { } block is
- skipped and the address of the beginning of the block (after the JSI
- instruction) will be stored on the stack.
+ macros as described above). This is the same as the nonstandard [& ]@
+ block (described below), but internally uses a separate stack. You can
+ also use other runes at the beginning e.g. ?{ } is like the [? ]@ block.
 
  An instruction opcode consists of three uppercase letters, optionally
  followed by any combination of instruction flags which can be "2" for

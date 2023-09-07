@@ -233,7 +233,7 @@ static Uint8 layers;
 static Uint8 palet=7;
 static Uint8 touch_mode=0;
 static SDL_cond*stdin_cond;
-static Uint8 screencompat=0x01;
+static Uint8 screencompat=0x03;
 
 static Uint16 scriptc;
 static Script*scriptv;
@@ -724,7 +724,7 @@ static void draw_sprite(Uint16 x,Uint16 y,Uint16 addr,Uint8 v) {
 }
 
 static void screen_out(Device*dev,Uint8 id) {
-  int i;
+  int i,fx,fy;
   Uint16 w;
   Uint16 x=GET16(dev->d+8);
   Uint16 y=GET16(dev->d+10);
@@ -758,12 +758,14 @@ static void screen_out(Device*dev,Uint8 id) {
       if(size_changed) set_screen_mode(scr_w,scr_h);
       picture_changed=1;
       w=GET16(dev->d+12);
+      fx=((z&0x10)&&(screencompat&0x02)?-8:8);
+      fy=((z&0x20)&&(screencompat&0x02)?-8:8);
       for(i=0;i<=(dev->d[6]>>4);i++) {
-        draw_sprite(x+i*(dev->d[6]&0x02?8:0),y+i*(dev->d[6]&0x01?8:0),w,z);
+        draw_sprite(x+i*(dev->d[6]&0x02?fx:0),y+i*(dev->d[6]&0x01?fy:0),w,z);
         if(dev->d[6]&0x04) w+=z&0x80?16:8;
       }
-      if(dev->d[6]&0x01) PUT16(dev->d+8,x+8);
-      if(dev->d[6]&0x02) PUT16(dev->d+10,y+8);
+      if(dev->d[6]&0x01) PUT16(dev->d+8,x+fx);
+      if(dev->d[6]&0x02) PUT16(dev->d+10,y+fy);
       if(dev->d[6]&0x04) PUT16(dev->d+12,w);
       break;
   }

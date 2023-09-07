@@ -38,6 +38,9 @@ set corresponds to newer behaviour, generally.
 * bit0 = clear if drawing sprites with colour mode 0 is opaque, or set if
 it is transparent.
 
+* bit1 = set if flipping will reverse the direction of auto advancement
+when drawing sprites.
+
 Other bits are currently unused.
 
 

@@ -259,6 +259,9 @@ character, as well as: backspace (0x08), tab (0x09), return (0x0D), escape
 The vector is called when the mouse is moved or if any mouse buttons are
 pushed or released.
 
+The buttons are: bit0 for the left button, bit1 for the middle button, and
+bit2 for the right button.
+
 The scroll amounts are signed 16-bit numbers.
 
 

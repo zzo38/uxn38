@@ -1,0 +1,615 @@
+\\ Timer program
+
+|0000
+  @Alarm &h $1 &m $1 ( hours, minutes )
+  @CountDir $1 ( 0=down, 1=up )
+  @TimerOn $1 ( 0=stop, 1=go )
+  @Timer &h $1 &m $1 &s $1 &f $1 \:Timer \_:+ \@2xTimer
+  @AlarmOn $1 ( 1=off, 0=on )
+  @ChimeSet $1 ( 0=off, 1=60min, 2=30min, 3=15min, 4=Westminster )
+  @Clock24 $1 ( 1 for 24-hour clock, 0 for 12-hour clock )
+  @Mode $1 ( 0=clock, 2=alarm-set, 4=timer, 6=sound-set )
+  @Cursor $1 ( must come next after Mode )
+  @Mark $1 ( timer mark address; must come next after Cursor )
+  @Volume $1 ( volume times seventeen; the next one must be SoundState )
+  @SoundState $1 ( 0=none, else MIDI note number; even=once, odd=repeating )
+  @SoundFrame $1 ( frame number; comes next after SoundState )
+  @LastSec $1 ( last observed value for seconds )
+  @Frame $1
+  @MissFrame $1 ( keep track of missed frames for timer mode )
+  @MouseX &hi $1 &lo $1
+  @MouseY &hi $1 &lo $1
+  @MouseState $1
+  @MusicAddr $2
+  @MusicState $1
+  @HourBells $1
+
+|0100
+  \\ Set up
+  #8090 #08 DEO2k INC INC DEO2k INC INC DEO2
+  #00a0 #24 DEO2
+  #00c0 #22 DEO2
+  #0126 DEO
+  ;ScreenVec #20 DEO2
+  ;KeyVec #80 DEO2
+  ;MouseVec #90 DEO2
+  #0000 #38 DEO2
+  #0002 #3a DEO2
+  ;SqWave #3c DEO2
+  LIT2 cc -Volume STZ
+  redraw-screen
+  BRK
+
+@locate ( x y -- )
+  #0005 SFT2 #2a DEO2
+  #0005 SFT2 #28 DEO2
+  JMP2r
+
+@drawnum ( number -- )
+  LDArk STHr INC2r
+  SWP #0a DIVk STHk MUL SUB OVR STHr [& ]@
+  ( row digit )
+  DUP ADD ADD #00 SWP ;Digits ADD2 LDA2 printc
+  \\ fall through
+@printc ( ch -- )
+  #0005 SFT2 ;Font ADD2 #2c DEO2
+  #012f DEO
+  JMP2r
+
+@printat ( x y -- )
+  locate !&0 [@ printc &0 LDArk STHr INC2r DUP ]? POP JMP2r
+
+@redraw-clock0 ( -- )
+  .AlarmOn LDZ [? #0102 printat 8400 ]@
+  #0110 printat 8920 "ALARM 2020 2020 8a20 "12/24 00
+@redraw-clock ( -- )
+  \\ Day of week
+  #0101 locate
+  #00c7 DEI #03 MUL ;Weekday ADD2
+  LDAk printc INC2 LDAk printc INC2 LDA printc
+  #2020 printc printc
+  \\ Time of day
+  #c4 DEI2 SWP ( minutes hours )
+  .Clock24 LDZ [?
+    #0c LTHk
+    DUP #f1 MUL #50 ADD
+    #1502 locate printc #4d printc #0601 locate
+    #01 EOR MUL SUB
+    DUP [? POP #0c ]@
+  ]@
+  DUP drawnum 00 #83 printc
+  OVR drawnum 00 #83 printc
+  .LastSec LDZ STHk drawnum 00
+  #0602 locate
+  DUP drawnum 14 #83 printc
+  OVR drawnum 14 #83 printc
+  STHrk drawnum 14
+  #0603 locate
+  drawnum 28 #20 printc
+  drawnum 28 #20 printc
+  STHr drawnum 28
+  JMP2r
+
+@redraw-alarm0 ( -- )
+  #0110 printat 8920 "ON 20 2020 2020 2020 8a20 "OFF 00
+  cursor-adjust
+  #0101 printat "SET 00
+  #0102 printat 8400
+  draw-cursor
+@redraw-alarm ( -- )
+  .Alarm LDZ2 SWP ( minutes hours )
+  .Clock24 LDZ [?
+    #0c LTHk
+    DUP #f1 MUL #50 ADD
+    #1502 locate printc #4d printc
+    #01 EOR MUL SUB
+    DUP [? POP #0c ]@
+  ]@
+  #0601 locate
+  DUP drawnum 00 #83 printc
+  OVR drawnum 00
+  #0602 locate
+  DUP drawnum 14 #83 printc
+  OVR drawnum 14
+  #0603 locate
+  drawnum 28 #20 printc
+  drawnum 28
+  JMP2r
+
+@redraw-timer0 ( -- )
+  #0110 .TimerOn LDZ [?
+    printat 8920 "GO 20 2020 2020 2020 8a20 "RESET 00
+    draw-cursor
+  ][
+    #0202 locate
+    LIT2 2d -CountDir LDZ DUP ADD SUB printc
+    printat 8920 "MARK 20 2020 2020 8a20 "STOP 00
+  ]@
+  cursor-adjust
+  LITr 06 .Mark LDZ [@
+    DUP [? POP POPr !redraw-timer ]@
+    #06 STHrk locate INCr
+    draw-marked-time
+  ]!
+@redraw-timer ( -- )
+  #8300 INC2k #2002
+  LIT2r [: DUP2r ]@
+  DUP #14 MUL ,&x STR
+  INC ,&y STR ,&z STR
+  LIT2 06 &y $1 locate
+  .Timer/h
+  &loop
+    DUP LDZ drawnum &x $1
+    INC DUP .Timer/f EQU [? LIT &z $1 printc !&loop ]@
+  POP JMP2r
+
+@redraw-sound0 ( -- )
+  #060c printat 8520 "CHIME 20 2086 00
+  #060e printat 8820 "VOLUME 2087 00
+  #0110 printat 8920 "TEST 00
+@redraw-sound ( -- )
+  #0204 locate
+  .Volume LDZ [@ #7f printc #11 SUB DUP ]? POP
+  LIT2 f0 -Volume LDZ ORA [@ LIT "_ printc INC DUP ]? POP
+  #1104 printat 2000
+  #0202 locate
+  LIT2r :ChimeSet LDZr STHrk [?
+    POP2r printat/0 "OFF 2020 2020 2020 2020 00 JMP2r
+  ]@
+  #04 STHrk EQU [?
+    [& ""631 ]@ OVR2r ADD2r LDAr STHr printc
+    STHr POPr #03 EQU #05 MUL #30 ADD printc
+    printat/0 20 "MINUTES 20 00 JMP2r
+    JMP2r
+  ]@
+  POP2r printat/0 "WESTMINSTER 00 JMP2r
+
+@cursor-adjust ( -- )
+  #060c printat 8520 "CURSOR 2086 00
+  #060e printat 8820 "ADJUST 2087 00
+  JMP2r
+
+@draw-cursor ( -- )
+  LIT2 06 -Cursor LDZ STHk DUP ADD ADD STHr #01 SFT ADD
+  #04 locate LIT "^ printc
+  JMP2r
+
+@draw-marked-time ( addr -- addr )
+  [& LIT ": printc ]@ [& LIT ": printc ]@ LDZk printc INC LDZk printc INC JMP2r
+
+@redraw-screen ( -- )
+  DUP2rk EOR2r LITr 28 DEO2rk INCr INCr DEO2r #802e DEO
+  #0112 printat 8b8d 8f20 "MODE 2020 20 8c8e 8f20 "SILENCE 00
+  .Mode LDZ INC LDR2 JMP2 :redraw-clock0 :redraw-alarm0 :redraw-timer0 :redraw-sound0
+
+@ScreenVec
+  .LastSec LDZ #c6 DEI EQU [?
+    #c6 DEI .LastSec STZ ;Frame STZ
+    .Mode LDZ [? redraw-clock ]@
+    .LastSec LDZ [?
+      .AlarmOn LDZ [?
+        ;Alarm LDZ2 #c4 DEI2 NEQ2 [? #61 setsound ]@
+      ]@
+      ;ChimeSet LDZ EQU [?
+        .SoundState LDZ [?
+          #c5 DEI
+          LIT2 04 -ChimeSet LDZ EQU [?
+            LIT2 78 -ChimeSet LDZ SFT DIVk MUL SUB [?
+              #5c setsound
+            ]@
+          ][
+            #0f DIVk STHk MUL SUB [?
+              STHrk [?
+                fullhour
+              ][
+                ;quarters STHrk #0007 SFT2 ADD2 LDA2
+                STHrk #fb MUL setchimes
+              ]@
+            ]@ POPr
+          ]@
+        ]@
+      ]@
+    ]@
+    .MissFrame
+  ][
+    .Frame
+  ]@ LDZk INC SWP STZ
+  .TimerOn LDZ ?TimerVec
+  &sound
+  .SoundState LDZ [?
+    \\ Westminster Quarters
+    .MusicState LDZ [?
+      .HourBells LDZ [? BRK ]@
+      .SoundFrame LDZk INC DUP [?
+        POP #7f
+        #0f0f #38 DEO2
+        #343f DEO
+        .HourBells LDZk INC SWP STZ
+      ]@ SWP STZ
+      BRK
+    ]@
+    .SoundFrame LDZk INC DUP [?
+      STH .MusicAddr LDZ2k
+      LDAk DUP STHr EQU [? DUP #3f DEO ]@ POP
+      INC2 DUP2 ;change6 NEQ2 [? POP2 ;change1 ]@
+      ROT STZ2
+      .MusicState LDZk INC SWP STZ
+      #df
+    ]@ SWP STZ
+    BRK
+  ]@
+  .SoundFrame LDZk INC #0f AND STHk SWP STZ
+  STHr #07 AND [?
+    LIT2 08 -SoundFrame LDZ AND [?
+      .Volume LDZ2
+    ][
+      LIT2 01 -SoundState LDZ AND [? ;SoundState STZ ]@
+      #00ff
+    ]@ #3e DEO2
+  ]@
+  BRK
+
+@TimerVec
+  LIT2 01 -MissFrame LDZ LTH [?
+    .Frame LDZ .Timer/f LDZ NEQ ?ScreenVec/sound
+  ]@
+  .CountDir LDZ [?
+    ( down )
+    .Timer/s downtime
+    .Timer/m downtime
+    .Timer/h downtime
+    #5f setsound
+    LIT2 01 -CountDir STZ
+    #0202 printat "! 00
+    #0000 .Timer/h STZk INC STZ2
+  ][
+    ( up )
+    .Timer/s uptime
+    .Timer/m uptime
+    .Timer/h uptime
+  ]@
+  &done
+  LIT2 04 -Mode LDZ NEQ [? redraw-timer ]@
+  ;MissFrame STZ
+  !ScreenVec/sound
+
+@uptime ( addr -- )
+  LDZk INC DUP #3c LTH [? DUP EOR SWP STZ JMP2r ]@
+  SWP STZ POP2r !TimerVec/done
+
+@downtime ( addr -- )
+  LDZk [? #3b SWP STZ JMP2r ]@
+  POP2r LDZk #01 SUB SWP STZ !TimerVec/done
+
+@setsound ( note -- )
+  ;SoundState STZ2
+  ;HourBells STZ
+  #0000 #38 DEO2
+  .Volume LDZ2 #3e DEO2
+  JMP2r
+
+@setchimes ( address* 256-count -- )
+  #00 setsound
+  #0809 #38 DEO2
+  .MusicState STZ
+  .MusicAddr STZ2
+  LIT2 ff -SoundFrame STZ
+  JMP2r
+
+@change1 44 42 40 3b 00
+@change2 40 44 42 3b 00
+@change3 40 42 44 40 00
+@change4 44 40 42 3b 00
+@change5 3b 42 44 40 00
+@change6 ( Big Ben: 34 )
+
+\_@2- \@quarters :change1 :change2 :change4
+
+@KeyVec
+  ;Blank mousedraw 41
+  #82 DEI [?
+    #d083 DEI ADD #09 GTH [?
+      \\ do numeric key command by mode
+      #d083 DEI ADD .Cursor LDZ
+      .Mode LDZ INC LDR2 JMP2
+      :kNoD :kAlarmD :kTimerD :kNoD
+    ]@
+  ][
+    #ff82 DEI ADDk AND NIP [?
+      \\ do key command by mode
+      #82 DEI LIT2r :KeyCodes [@
+        #01 SFT DUP [?
+          .Mode LDZ STH2r ADD2 LDA2 JMP2
+        ]@
+      LIT2r 0008 ADD2r ]!
+    ]@
+  ]@
+  @kBrk BRK
+
+@KeyCodes
+  ( A ) :kToggleAlarm :kAlarmOn :kGo :kTest
+  ( B ) :kToggle24 :kAlarmOff :kStop :kBrk
+  ( SELECT ) :kMode :kMode :kMode :kMode
+  ( START ) :kNoSound :kNoSound :kNoSound :kNoSound
+  ( UP ) :kBrk :kAlUp :kTimerAdj :kHighVolume
+  ( DOWN ) :kBrk :kAlDown :kTimerAdj :kLowVolume
+  ( LEFT ) :kBrk :kCursorL :kCursorL :kPrevChime
+  ( RIGHT ) :kBrk :kCursorR :kCursorR :kNextChime
+
+@kToggleAlarm .AlarmOn LDZ ?kAlarmOn ( fallthrough )
+@kAlarmOff LIT2 01 -AlarmOn STZ LIT2 61 -SoundState LDZ NEQ [? #60 setsound ]@ @kMode0 ;Mode STZ redraw-screen BRK
+@kAlarmOn LIT2 00 -AlarmOn STZ #60 setsound !kMode0
+@kNoSound ;SoundState STZ #00ff #3e DEO2 BRK
+@kMode LIT2 06 -Mode LDZ INC INC AND ;Mode STZ2 redraw-screen BRK
+@kToggle24 .Clock24 LDZk #01 EOR @kStore SWP STZ redraw-screen BRK
+@kLowVolume .Volume LDZk #11 SUB @kVolume DUP #0f AND [? POP2 BRK ]@ SWP STZ redraw-sound #50 setsound BRK
+@kHighVolume .Volume LDZk #11 ADD !kVolume
+@kPrevChime .ChimeSet LDZk DUP [? POP #05 ]@ #01 SUB !kChimeSet
+@kNextChime .ChimeSet LDZk INC DUP #05 NEQ MUL @kChimeSet SWP STZ redraw-sound BRK
+@kTest LIT2 04 -ChimeSet LDZ EQU [? #5c setsound ][ fullhour ]@ BRK
+@kCursorL .Cursor LDZ [? BRK ]@ .Cursor LDZk #01 SUB !kStore
+@kCursorR .Mode LDZ2 LTH ?kBrk .Cursor LDZk INC !kStore
+
+@kAlUp
+  LIT2 02 -Cursor LDZ AND [? .Alarm LDZk INC DUP #18 NEQ MUL @kAlSet SWP STZ redraw-alarm BRK ]@
+  alarmAdjAmount SUB #3c DIVk MUL SUB !kAlSet
+
+@kAlDown
+  LIT2 02 -Cursor LDZ AND [? .Alarm LDZk DUP [? POP #18 ]@ #01 SUB !kAlSet ]@
+  alarmAdjAmount ADD #3c GTHk MUL ADD !kAlSet
+
+@alarmAdjAmount .Alarm/m LDZk LIT2 09 -Cursor LDZ MUL #1c SUB JMP2r
+
+@kTimerAdj
+  .TimerOn LDZ ?kBrk
+  LIT2 -Timer -Cursor LDZ #01 STH2k SFT ADD LDZk
+  STH2r AND #09 MUL #f6 ADD
+  #1082 DEI AND [? ADD #3c GTHk MUL ADD ][ SUB #3c DIVk MUL SUB ]@
+  SWP STZ redraw-timer BRK
+
+@kNoD POP2 BRK
+
+@kAlarmD
+  DUP INC #03 AND .Cursor STZ
+  #01 SFTk SWP ROT AND [? SWP #0a MUL ][ LDZk ROT ADD ]@
+  OVR #24 MUL #18 ADD OVR GTH ?kStore
+  &wrong POP #00 ;Cursor STZ #38 setsound !kStore
+
+@kTimerD
+  .TimerOn LDZ ?kNoD
+  DUP INC DUP #06 NEQ MUL .Cursor STZ .2xTimer ADD
+  #01 SFTk SWP ROT AND [? SWP #0a MUL ][ LDZk ROT ADD ]@
+  DUP #3b GTH ?kAlarmD/wrong !kStore
+
+@write-mark ( value address -- )
+  STH #0a DIVk STHk MUL SUB #30 STHk ADDr ADD STH ROTr STZ2r
+  JMP2r
+
+@kGo
+  #c6 setsound
+  .TimerOn LDZ [?
+    LIT2 01 -TimerOn STZ
+    ;Timer LDZk SWP INC LDZ2 ORA ORA EQU .CountDir STZ
+    .Frame LDZ .Timer/f STZ
+    ;MissFrame STZ
+  ][
+    #d8 DUP .Mark LDZ EQU [? .Mark LDZk #08 SUB SWP STZ ]@
+    [@ DUP #08 ADD LDZ OVR STZ INC DUP ]? POP
+    .Timer LDZk #f8 write-mark
+    INC LDZk #fa write-mark
+    INC LDZ #fc write-mark
+    .Frame LDZ .Timer/f LDZ SUB
+    .CountDir LDZ [? #ff MUL ]@
+    #3c DUP2 GTH MUL ADD #fe write-mark
+  ]@
+  redraw-screen BRK
+
+@kStop
+  #c6 setsound
+  .TimerOn LDZ [?
+    ;Cursor STZk INC STZk POP ;Timer STZk INC STZ2
+  ][
+    ;TimerOn STZ
+  ]@
+  redraw-screen BRK
+
+@MouseVec
+  ;Blank mousedraw 41
+  #92 DEI2 .MouseX STZ2
+  #94 DEI2 .MouseY STZ2
+  ;mouseshape mousedraw c1
+  #0196 DEI AND .MouseState STH2k LDZ STZr INC AND [? BRK ]@
+  .MouseX LDZ2 #00bf GTH2 ?kBrk
+  .MouseY LDZ2 #005a SUB2 #0066 GTH2 ?kBrk
+  ;KeyCodes ;Mode LDZ ADD2 #00
+  LIT2 57 -MouseX/lo LDZ GTH LIT2 c6 -MouseY/lo LDZ ADD #14 SFT ADD
+  LDR ADD2 LDA2 JMP2 00 38 30 20 28 08 00 18 10
+
+@mousedraw ( picture* -- )
+  .MouseX LDZ2 #28 DEO2
+  .MouseY LDZ2 #2a DEO2
+  #2c DEO2
+  LDArk LITr 2f DEOr INC2r JMP2r
+
+@Weekday
+  "SUN
+  "MON
+  "TUE
+  "WED
+  "THU
+  "FRI
+  "SAT
+
+@SqWave 00ff
+
+@fullhour ( -- )
+  ;change2 #ec setchimes
+  #00c4 DEI
+  #0c LTHk #01 EOR MUL SUB DUP [? POP #0c ]@
+  SUB .HourBells STZ
+  JMP2r
+
+@Digits
+  ( .0.. .1.. .2.. .3.. .4.. .5.. .6.. .7.. .8.. .9.. )
+    8182 8120 8180 8180 8181 2082 2082 8180 8182 8182
+    8181 8120 2082 8180 8180 8180 8182 8120 8182 8180
+    2080 2020 2080 2080 2020 2080 2080 2020 2080 2080
+  ( .0.. .1.. .2.. .3.. .4.. .5.. .6.. .7.. .8.. .9.. )
+
+\_@0100"- \@Font @Blank \~ascii.font
+
+( 80 )
+  \-..111111
+  \-..111111
+  \-........
+  \-........
+  \-........
+  \-........
+  \-........
+  \-........;
+( 81 )
+  \-........
+  \-........
+  \-11......
+  \-11......
+  \-11......
+  \-11......
+  \-11......
+  \-11......;
+( 82 )
+  \-..111111
+  \-..111111
+  \-11......
+  \-11......
+  \-11......
+  \-11......
+  \-11......
+  \-11......;
+( 83 )
+  \-........
+  \-........
+  \-........
+  \-........
+  \-.11.....
+  \-.11.....
+  \-........
+  \-........;
+( 84 )
+  \-...11...
+  \-..1..1..
+  \-..1..1..
+  \-.1....1.
+  \-11111111
+  \-...1....
+  \-....1...
+  \-........;
+( 85 )
+  \-....1...
+  \-...11...
+  \-..111...
+  \-.1111...
+  \-..111...
+  \-...11...
+  \-....1...
+  \-........;
+( 86 )
+  \-..1.....
+  \-..11....
+  \-..111...
+  \-..1111..
+  \-..111...
+  \-..11....
+  \-..1.....
+  \-........;
+( 87 )
+  \-........
+  \-........
+  \-...1....
+  \-..111...
+  \-.11111..
+  \-1111111.
+  \-........
+  \-........;
+( 88 )
+  \-........
+  \-........
+  \-1111111.
+  \-.11111..
+  \-..111...
+  \-...1....
+  \-........
+  \-........;
+( 89 )
+  \-.11111..
+  \-111.111.
+  \-11.1.11.
+  \-1.111.1.
+  \-1.....1.
+  \-1.111.1.
+  \-1.111.1.
+  \-.11111..;
+( 8a )
+  \-.11111..
+  \-1...111.
+  \-1.11.11.
+  \-1...111.
+  \-1.11.11.
+  \-1.11.11.
+  \-1...111.
+  \-.11111..;
+( 8b )
+  \-.1111111
+  \-1..1..1.
+  \-1.11.11.
+  \-1..1..1.
+  \-11.1.11.
+  \-1..1..1.
+  \-.1111111
+  \-........;
+( 8c )
+  \-.1111111
+  \-1..1...1
+  \-1.111.11
+  \-1..11.11
+  \-11.11.11
+  \-1..11.11
+  \-.1111111
+  \-........;
+( 8d )
+  \-11111111
+  \-11..1..1
+  \-11.11.11
+  \-11..1.11
+  \-11.11.11
+  \-.1..1..1
+  \-11111111
+  \-........;
+( 8e )
+  \-11111111
+  \-1.11..11
+  \-.1.1.1.1
+  \-...1..11
+  \-.1.1.1.1
+  \-.1.1.1.1
+  \-11111111
+  \-........;
+( 8f )
+  \-1111....
+  \-...11...
+  \-1.111...
+  \-1.111...
+  \-1.111...
+  \-1.111...
+  \-1111....
+  \-........;
+
+@mouseshape
+  \=2222222.
+  \=2333332.
+  \=2332222.
+  \=23232...
+  \=232232..
+  \=232.232.
+  \=222..232
+  \=......22;
+

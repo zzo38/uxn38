@@ -23,22 +23,31 @@
   @MusicAddr $2
   @MusicState $1
   @HourBells $1
+@saveSize
 
 |0100
+  \\ Load save data
+  LIT2 cc -Volume STZ filing ;Mode STZ
   \\ Set up
   #8090 #08 DEO2k INC INC DEO2k INC INC DEO2
   #00a0 #24 DEO2
   #00c0 #22 DEO2
-  #0126 DEO
+  #0126 DEOk
   ;ScreenVec #20 DEO2
   ;KeyVec #80 DEO2
   ;MouseVec #90 DEO2
   #0000 #38 DEO2
   #0002 #3a DEO2
   ;SqWave #3c DEO2
-  LIT2 cc -Volume STZ
-  redraw-screen
-  BRK
+  \\ JMP2rk outside of a subroutine call will be like "redraw-screen BRK"
+  EQU JSR redraw-screen BRK
+
+@kSave DUP2r
+@filing ( -- )
+  [& "timer.save 00 ]@ LITr a8 DEO2r
+  ;saveSize DUP2k #aa DEO2
+  EOR2 #ac DEO2 #aefa STR
+  JMP2r
 
 @locate ( x y -- )
   #0005 SFT2 #2a DEO2
@@ -146,7 +155,7 @@
 @redraw-sound0 ( -- )
   #060c printat 8520 "CHIME 20 2086 00
   #060e printat 8820 "VOLUME 2087 00
-  #0110 printat 8920 "TEST 00
+  #0110 printat 8920 "TEST 2020 2020 20 8a20 "SAVE 00
 @redraw-sound ( -- )
   #0204 locate
   .Volume LDZ [@ #7f printc #11 SUB DUP ]? POP
@@ -171,11 +180,10 @@
 
 @draw-cursor ( -- )
   LIT2 06 -Cursor LDZ STHk DUP ADD ADD STHr #01 SFT ADD
-  #04 locate LIT "^ printc
-  JMP2r
+  #04 locate LIT "^ !printc
 
 @draw-marked-time ( addr -- addr )
-  [& LIT ": printc ]@ [& LIT ": printc ]@ LDZk printc INC LDZk printc INC JMP2r
+  [& LIT ": printc ]@ [& LIT ": printc ]@ [& ]@ LDZk printc INC JMP2r
 
 @redraw-screen ( -- )
   DUP2rk EOR2r LITr 28 DEO2rk INCr INCr DEO2r #802e DEO
@@ -253,8 +261,9 @@
   LIT2 01 -MissFrame LDZ LTH [?
     .Frame LDZ .Timer/f LDZ NEQ ?ScreenVec/sound
   ]@
+  .Frame LDZ .Timer/f STZ
   .CountDir LDZ [?
-    ( down )
+    &down
     .Timer/s downtime
     .Timer/m downtime
     .Timer/h downtime
@@ -263,7 +272,7 @@
     #0202 printat "! 00
     #0000 .Timer/h STZk INC STZ2
   ][
-    ( up )
+    &up
     .Timer/s uptime
     .Timer/m uptime
     .Timer/h uptime
@@ -328,7 +337,7 @@
 
 @KeyCodes
   ( A ) :kToggleAlarm :kAlarmOn :kGo :kTest
-  ( B ) :kToggle24 :kAlarmOff :kStop :kBrk
+  ( B ) :kToggle24 :kAlarmOff :kStop :kSave
   ( SELECT ) :kMode :kMode :kMode :kMode
   ( START ) :kNoSound :kNoSound :kNoSound :kNoSound
   ( UP ) :kBrk :kAlUp :kTimerAdj :kHighVolume
@@ -337,11 +346,11 @@
   ( RIGHT ) :kBrk :kCursorR :kCursorR :kNextChime
 
 @kToggleAlarm .AlarmOn LDZ ?kAlarmOn ( fallthrough )
-@kAlarmOff LIT2 01 -AlarmOn STZ LIT2 61 -SoundState LDZ NEQ [? #60 setsound ]@ @kMode0 ;Mode STZ redraw-screen BRK
+@kAlarmOff LIT2 01 -AlarmOn STZ LIT2 61 -SoundState LDZ NEQ [? #60 setsound ]@ @kMode0 ;Mode STZ JMP2rk
 @kAlarmOn LIT2 00 -AlarmOn STZ #60 setsound !kMode0
-@kNoSound ;SoundState STZ #00ff #3e DEO2 BRK
-@kMode LIT2 06 -Mode LDZ INC INC AND ;Mode STZ2 redraw-screen BRK
-@kToggle24 .Clock24 LDZk #01 EOR @kStore SWP STZ redraw-screen BRK
+@kNoSound ;SoundState STZ #00ff #3e DEO2 JMP2rk
+@kMode LIT2 06 -Mode LDZ INC INC AND ;Mode STZ2 JMP2rk
+@kToggle24 .Clock24 LDZk #01 EOR @kStore SWP STZ JMP2rk
 @kLowVolume .Volume LDZk #11 SUB @kVolume DUP #0f AND [? POP2 BRK ]@ SWP STZ redraw-sound #50 setsound BRK
 @kHighVolume .Volume LDZk #11 ADD !kVolume
 @kPrevChime .ChimeSet LDZk DUP [? POP #05 ]@ #01 SUB !kChimeSet
@@ -371,15 +380,17 @@
 
 @kAlarmD
   DUP INC #03 AND .Cursor STZ
-  #01 SFTk SWP ROT AND [? SWP #0a MUL ][ LDZk ROT ADD ]@
+  commonD
   OVR #24 MUL #18 ADD OVR GTH ?kStore
   &wrong POP #00 ;Cursor STZ #38 setsound !kStore
 
 @kTimerD
   .TimerOn LDZ ?kNoD
   DUP INC DUP #06 NEQ MUL .Cursor STZ .2xTimer ADD
-  #01 SFTk SWP ROT AND [? SWP #0a MUL ][ LDZk ROT ADD ]@
+  commonD
   DUP #3b GTH ?kAlarmD/wrong !kStore
+
+@commonD #01 SFTk SWP ROT AND [? SWP #0a MUL ][ LDZk ROT ADD ]@ JMP2r
 
 @write-mark ( value address -- )
   STH #0a DIVk STHk MUL SUB #30 STHk ADDr ADD STH ROTr STZ2r
@@ -389,11 +400,11 @@
   #c6 setsound
   .TimerOn LDZ [?
     LIT2 01 -TimerOn STZ
-    ;Timer LDZk SWP INC LDZ2 ORA ORA EQU .CountDir STZ
+    ;Timer LDZk SWP INC LDZ2 ORA ORA EQU DUP .CountDir STZ
     .Frame LDZ .Timer/f STZ
     ;MissFrame STZ
   ][
-    #d8 DUP .Mark LDZ EQU [? .Mark LDZk #08 SUB SWP STZ ]@
+    #d8 DUPk .Mark LDZ EQU [? .Mark LDZk #08 SUB SWP STZ ]@
     [@ DUP #08 ADD LDZ OVR STZ INC DUP ]? POP
     .Timer LDZk #f8 write-mark
     INC LDZk #fa write-mark
@@ -402,7 +413,8 @@
     .CountDir LDZ [? #ff MUL ]@
     #3c DUP2 GTH MUL ADD #fe write-mark
   ]@
-  redraw-screen BRK
+  redraw-screen
+  [? !TimerVec/down ]@ BRK
 
 @kStop
   #c6 setsound
@@ -411,7 +423,7 @@
   ][
     ;TimerOn STZ
   ]@
-  redraw-screen BRK
+  JMP2rk
 
 @MouseVec
   ;Blank mousedraw 41

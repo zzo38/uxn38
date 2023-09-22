@@ -8,11 +8,13 @@
   @Mstate $1
   @MouseX $2
   @MouseY $2
+  @Type $1
   \\ Pointers into line index
   @Active $2
   @Scroll $2
   @Cursor $2
   @Break $2
+  @ActiveEnd $2
 |0022
   @Width $1
 |0024
@@ -87,17 +89,60 @@
     STHrk #80 LTH [? DUPr LITr df GTHr INCr LITr 60 MULr SUBr ]@ STHk STZr
     INC DUP
   ]?
-  POP ;line-1
+  POP ;lines
 \\ This must end not before 0x0200
 \_1@8>/[1E]
+\\ This fall through to gonode
 
 @gonode ( address* -- ) ( no return )
-  ( clear screen ) DUP2k EOR2 #28 DEO2k INC INC DEO2 #802e DEO
-  DUP2 .Active STZ2 DUP2 .Scroll STZ2 .Cursor STZ2
-  showtitle
+  DUP2k .Active STZ2 #0010 ADD2 DUP2 .Scroll STZ2 .Cursor STZ2
+  #05 ADD LDAk .Type STZ INC2 LDA2 .ActiveEnd STZ2
 @shownode
-  
+  cls showtitle
+  rvoff
+  LITr -Scroll LDZ2r #01
+  [@
+    #00 OVR locate
+    ( draw cursor ) #20 STH2rk .Cursor LDZ2 EQU2 OVR SFT SUB drawch
+    STH2rk .ActiveEnd LDZ2 NEQ2 [?
+      printi "--End-- 00
+      !&end
+    ]@
+    STH2rk .Break LDZ2 NEQ2 [?
+      printi "--More-- 00
+      !&end
+    ]@
+    STH2rk #05 ADD LDA ( type )
+    DUP .typ/inner NEQ [?
+      LIT2r 0008 ADD2r \\ the actual item is the next line
+    ][
+      LIT2 -typ/subject -Type LDZ EQU [?
+        \\ Not a subject or nesthint block; it contains text (possibly encrypted)
+        DUP .typ/break EQU [?
+          STH2rk seek
+          plaintext \\ TODO
+        ][
+          printi "-- 00
+        ]@
+        POP !&next
+      ]@
+    ]@
+    \\ It is an item in a subject or nesthint block
+    typech STH2rk seek skipline plaintext
+    &next \\ Next item
+    LITr 06 ADDr LDA2r
+    INC DUP .Height LDZ LTH
+  ]?
+  &end
+  \\ Scroll indicator
+  POP2r #0000 locate
+  .Height LDZ NEQ DUP ADD
+  .Active LDZ2 #0010 ADD2 .Scroll LDZ2 EQU2
+  ADD #1d ADD drawch
   BRK
+
+@cls ( -- )
+  #0000 #28 DEO2k INC INC DEO2 #802e DEO JMP2r
 
 @seek ( node* -- )
   STH2k LDA2 #a000 STH2rk STA2 STH2rk #02 DEO2 STH2r STA2 JMP2r
@@ -105,8 +150,16 @@
 @locate ( x y -- )
   #0005 SFT2 #2a DEO2 #0005 SFT2 #28 DEO2 JMP2r
 
+  85 80 81 81 82 83 84 2d 2d 84
+@typech ( type -- )
+  #0e SUB LDR
+  \\ fall through
+
 @drawch ( char -- )
   #0005 SFT2 ;Font ADD2 #2c DEO2 LIT2 &ink 012f DEO JMP2r
+
+@printi ( -- )
+  [@ LDArk STHr INC2r DUP [? POP JMP2r ]@ drawch ]!
 
 @rvon ( -- )
   LIT2 04 \,drawch/ink STR JMP2r
@@ -116,13 +169,17 @@
 
 @showtitle ( -- )
   rvon #0100 locate
-  #ff drawch \\ TODO: change it to draw the icon for the block type
-  .Active LDZ2 seek
+  .Type LDZ typech
+  .Active LDZ2 seek skipline
+@plaintext ( -- )
   [@ #ac DEI DUP #0d NEQ [? POP JMP2r ]@ drawch ]!
 
 @error
   [@ STH2rk INC2r LDA DUP #19 DEO #0a EOR ]?
   #010f DEO BRK
+
+@skipline ( -- )
+  [@ #0aac DEI NEQ ]? JMP2r
 
 @isword ( char -- )
   DUP LDArk STHr INC2r EQU [?
@@ -143,22 +200,61 @@
   ]@ JMP2r
 
 @vkey
-  #92 DEI2 #28 DEO2 #94 DEI2 #2a DEO2 #402f DEO
+  hidemouse
+  \\ Keyboard
   
-  #82 DEI .Jstate STH2k LDZ STZr EQU ?&brk
+  #82 DEI .Jstate STH2k LDZ STZr EQU ?brk
+    \\ Joypad
+    #0182 DEI EQU ?kEnter
+    #0282 DEI EQU ?kExit
+    #1082 DEI EQU ?kUp
+    #2082 DEI EQU ?kDown
     
-  &brk BRK
+  @brk BRK
 
 @vmouse
-  .MouseX LDZ2 #28 DEO2
-  .MouseY LDZ2 #2a DEO2
-  #402f DEO
+  hidemouse
   #92 DEI2 DUP2 .MouseX STZ2 #28 DEO2
   #94 DEI2 DUP2 .MouseY STZ2 #2a DEO2
   ;mouseshape #2c DEO2 #c12f DEO
-  #96 DEI .Mstate STH2k LDZ STZr EQU ?vkey/brk
+  #96 DEI .Mstate STH2k LDZ STZr EQU ?brk
+    \\ If mouse button is pushed
     
   BRK
+
+@hidemouse ( -- )
+  .MouseX LDZ2 #28 DEO2
+  .MouseY LDZ2 #2a DEO2
+  ;BlankFont #2c DEO2
+  #412f DEO JMP2r
+
+@kEnter
+  .Cursor LDZ2 .ActiveEnd LDZ2 EQU2 ?brk
+  LIT2 -typ/subject -Type LDZ EQU [?
+    LIT2 -typ/nesthint -Type LDZ NEQ ?brk
+    LIT2 -typ/inner -Cursor LDZ2 #05 ADD LDA NEQ ?brk
+    #0008
+  ][
+    #0000
+  ]@
+  .Cursor LDZ2 ADD2
+  DUP2 #05 ADD LDA DUP .typ/blank LTH MUL [? POP2 BRK ]@
+  !gonode
+
+@kExit
+  .Active LDZ2 LDA2 !gonode
+
+@kUp
+  
+  BRK
+
+@kDown
+  .Cursor LDZ2 INC2 .ActiveEnd LDZ2 GTH2 ?brk
+  .Cursor LDZ2 .Break LDZ2 EQU2 ?brk
+  .Cursor LDZ2k
+    LIT2 -typ/inner -Cursor LDZ2 #05 ADD LDA NEQ [? #0008 ADD2 ]@
+  #06 ADD LDA2 ROT STZ2
+  !shownode
 
 \_@2+fe'&(@2+!) \\ alignment
 @Tkey "yke
@@ -176,36 +272,6 @@
   \=......22;
 
 ( 1c )
-  \-...1....
-  \-..1.1...
-  \-.1...1..
-  \-1.....1.
-  \-1.....1.
-  \-.1...1..
-  \-..1.1...
-  \-...1....;
-
-( 1d )
-  \-........
-  \-........
-  \-........
-  \-........
-  \-1.....1.
-  \-.1...1..
-  \-..1.1...
-  \-...1....;
-
-( 1e )
-  \-...1....
-  \-..1.1...
-  \-.1...1..
-  \-1.....1.
-  \-........
-  \-........
-  \-........
-  \-........;
-
-( 1f )
   \-........
   \-.11.....
   \-.1111...
@@ -215,7 +281,97 @@
   \-........
   \-........;
 
-\_@20'8*- \@Font \~ascii.font
+( 1d )
+  \-...1....
+  \-..1.1...
+  \-.1...1..
+  \-1.....1.
+  \-1.....1.
+  \-.1...1..
+  \-..1.1...
+  \-...1....;
+
+( 1e )
+  \-........
+  \-........
+  \-........
+  \-........
+  \-1.....1.
+  \-.1...1..
+  \-..1.1...
+  \-...1....;
+
+( 1f )
+  \-...1....
+  \-..1.1...
+  \-.1...1..
+  \-1.....1.
+  \-........
+  \-........
+  \-........
+  \-........;
+
+\_@20'8*- \@Font @BlankFont \~ascii.font
+
+( 80 - subject )
+  \-........
+  \-........
+  \-..1111..
+  \-..1111..
+  \-..1111..
+  \-..1111..
+  \-........
+  \-........;
+
+( 81 - hint,nesthint )
+  \-........
+  \-...1....
+  \-..111...
+  \-.11111..
+  \-1111111.
+  \-.11111..
+  \-..111...
+  \-...1....;
+
+( 82 - comment )
+  \-........
+  \-..1111..
+  \-.1....1.
+  \-.1....1.
+  \-.1....1.
+  \-.1....1.
+  \-..1111..
+  \-........;
+
+( 83 - credit )
+  \-........
+  \-..1111..
+  \-.1.1..1.
+  \-.1..1.1.
+  \-.1.1..1.
+  \-.1..1.1.
+  \-..1111..
+  \-........;
+
+( 84 - link )
+  \-........
+  \-.1.1....
+  \-..1.1...
+  \-...1.1..
+  \-.1111.1.
+  \-...1.1..
+  \-..1.1...
+  \-.1.1....;
+
+( 85 - unknown type )
+  \-........
+  \-1111111.
+  \-11...11.
+  \-1.111.1.
+  \-1111.11.
+  \-111.111.
+  \-1111111.
+  \-111.111.;
 
 \\ Extra records (explained below)
 @line-1 :line-1 00 00 00 -typ/subject &final ffff
@@ -270,7 +426,7 @@
   #d0f0 #08 DEO2
   #d0f2 #0a DEO2
   #c0f1 #0c DEO2
-  #0200 #22 DEO2
+  #0278 #22 DEO2
   #00c8 #24 DEO2
   #0126 DEO
   ;vkey #80 DEO2

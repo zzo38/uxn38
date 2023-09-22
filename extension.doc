@@ -7,7 +7,7 @@ implement none, some, or all of them in their own emulators, as well as
 their own extensions.
 
 Most programs should not need these extensions, although some might be
-able to use then optionally. (More rarely, some programs might require
+able to use them optionally. (More rarely, some programs might require
 one or more of these extensions, but this is generally discouraged.)
 
 

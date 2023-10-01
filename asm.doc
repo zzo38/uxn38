@@ -220,6 +220,8 @@ G  ( address -- value )  Read 16-bits from memory.
 k  ( count -- count? )  Similar to o (below) but ends the loop if the new
 count is zero instead of the old count.
 
+L  ( condition -- )  Go back to beginning of loop if condition is nonzero.
+
 o  ( count -- count? )  If count is nonzero, decrement and go back to the
 beginning; if it is already zero then just discards it and continues the
 execution from here instead.

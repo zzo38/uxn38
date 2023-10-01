@@ -350,6 +350,7 @@ static int special_calc(const char*w) {
     case 'g': if(ssptr<1) return 0; a=sstack[--ssptr]; sstack[ssptr++]=p.data[a]; break;
     case 'G': if(ssptr<1) return 0; a=sstack[--ssptr]; if(a==0xFFFF) return 0; sstack[ssptr++]=(p.data[a]<<8)|p.data[a+1]; break;
     case 'k': if(ssptr<1) return 0; if(--sstack[ssptr-1]) w=loop; else --ssptr; break;
+    case 'L': if(ssptr<1) return 0; if(sstack[--ssptr]) w=loop; break;
     case 'o': if(ssptr<1) return 0; if(sstack[ssptr-1]--) w=loop; else --ssptr; break;
     case 'p': if(ssptr<2) return 0; a=sstack[--ssptr]; b=sstack[--ssptr]; p.data[a]=b; break;
     case 'P': if(ssptr<2) return 0; a=sstack[--ssptr]; b=sstack[--ssptr]; if(a==0xFFFF) return 0; p.data[a]=b>>8; p.data[a+1]=b&255; break;

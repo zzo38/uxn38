@@ -1,0 +1,148 @@
+\\ BLAKE2s (this implementation is public domain)
+\\ Requires a nonstandard feature of uxn38 (port #16).
+\\ Specify hash size in bytes (1 to 32) on command-line argument.
+\\ This implementation is limited to 4 gigabytes of input.
+\\ (See RFC 7693)
+
+|00
+  @hi $2 @lo $2 ( number of bytes of input )
+  @nn $2 ( number of bytes of hash )
+  @ax @ah $1 @al $1
+  @bx @bh $1 @bl $1
+  @cx @ch $1 @cl $1
+  @dx @dh $1 @dl $1
+|40 @h ( internal state, and copy of initialization vector )
+|80 @v ( local work vector )
+|c0 @m ( data of message block )
+
+|0100
+  #0116 DEO
+  { 01 0040 0000 :IV 0000 00 [@ 40 } LITr 02 DEO2rk #60 ]; STA DEO2r
+  \\ First figure out output block size (in bytes)
+  [; #10 DEO2 BRK ]@
+  #0a12 DEI EQU [? LIT2 0a -nn LDZ MUL #d012 DEI ADD ADD .nn STZ BRK ]@
+  LIT2 67 -nn LDZ EOR #43 STZ
+  #6b08 #40 STZ2
+  \\ Ready to receive data
+  LITr -m
+  [; #10 DEO2 BRK ]@
+  #17 DEI [?
+    \\ Final
+    #e07c #78 STZ2
+    #2654 #7a STZ2
+    F
+    .nn LDZ2 [@ DUP #43 EOR LDZ hex INC NEQk ]?
+    #0a18 DEO #800f DEO BRK
+  ]@
+  STHrk [? POPr LITr -m F ;ztom #02 DEO2 ]@
+  .lo LDZ2k INC2 ORAk [? .hi LDZ2k INC2 ROT STZ2 ]@ ROT STZ2
+  #12 DEI STHrk #03 EOR STZ INCr
+  BRK
+
+@F
+  \\ Initialization
+  ;htov #02 DEO2
+  .hi LDZ2 #510e EOR2 #b0 STZ2
+  .lo LDZ2 #527f EOR2 #b2 STZ2
+  \\ Mixing
+  ;SIGMA [@
+    #8082 #9092 #a0a2 #b0b2 G
+    #8486 #9496 #a4a6 #b4b6 G
+    #888a #989a #a8aa #b8ba G
+    #8c8e #9c9e #acae #bcbe G
+    #8082 #9496 #a8aa #bcbe G
+    #8486 #989a #acae #b0b2 G
+    #888a #9c9e #a0a2 #b4b6 G
+    #8c8e #9092 #a4a6 #b8ba G
+    DUP
+  ]? POP2
+  \\ Final XOR
+  LITr 40 [@
+    STHrk LDZ2
+    STHrk #40 ADD LDZ2
+    STHrk #60 ADD LDZ2
+    EOR2 EOR2 STHrk STZ2
+    INCr INCr STHrk #60 NEQ
+  ]? POPr JMP2r
+
+%gah { .ah LDZ LDZ2 } %pah { .ah LDZ STZ2 }
+%gal { .al LDZ LDZ2 } %pal { .al LDZ STZ2 }
+%gbh { .bh LDZ LDZ2 } %pbh { .bh LDZ STZ2 }
+%gbl { .bl LDZ LDZ2 } %pbl { .bl LDZ STZ2 }
+%gch { .ch LDZ LDZ2 } %pch { .ch LDZ STZ2 }
+%gcl { .cl LDZ LDZ2 } %pcl { .cl LDZ STZ2 }
+%gdh { .dh LDZ LDZ2 } %pdh { .dh LDZ STZ2 }
+%gdl { .dl LDZ LDZ2 } %pdl { .dl LDZ STZ2 }
+
+\\ v[a] := (v[a] + v[b] + x)
+\\ v[d] := (v[d] ^ v[a]) >>> 16
+\\ v[c] := (v[c] + v[d])
+\\ v[b] := (v[b] ^ v[c]) >>> 12
+\\ v[a] := (v[a] + v[b] + y)
+\\ v[d] := (v[d] ^ v[a]) >>> 8
+\\ v[c] := (v[c] + v[d])
+\\ v[b] := (v[b] ^ v[c]) >>> 7
+
+%rotate {
+  STH2k LITr \_:f^1+4<w SFT2r
+  LIT \_:w SFT2 SWP2
+  gbl EOR2
+  STH2k LITr \_:w SFT2r EOR2r
+  LIT \_f^1+4<w SFT2 ORA2
+  pbh LITr -bl LDZr STZ2r
+}
+
+@G ( a* b* c* d* sigma* -- sigma* )
+  .dx STZ2 .cx STZ2 .bx STZ2 .ax STZ2
+  G1 SWP2k pdl pdh SWP2
+  G2 \c rotate INC
+  G1 ROT ROT STH2k pdl SWP DUP2 pdh STH2r
+  G2 \7 rotate INC
+  JMP2r
+
+@G1 ( sigma* -- sigma* adh* adl* )
+  LDAk LDZ2k ROT INC INC LDZ2
+  gah gal asw SWP2 gbh gbl asw
+  SWP2k pal pah
+  gdh EOR2 SWP2 gdl EOR2 JMP2r
+
+@G2 ( dh* dl* -- cl* cbh* )
+  gch gcl asw SWP2k pcl pch
+  gbh EOR2 JMP2r
+
+@asw ( hi1* lo1* hi2* lo2* -- lo* hi* )
+  \\ Add 32-bit numbers and swap high/low halfs
+  ROT2 STH2k ADD2 STH2k ROT2 ROT2 GTH2r #00 STHr ADD2 ADD2 JMP2r
+
+@hex ( x -- )
+  DUP #04 SFT [& #0f AND ]@
+  DUP #09 GTH #27 MUL ADD #30 ADD #18 DEO JMP2r
+
+@htov 01 0040 0000 :h 0000 :v
+@ztom 01 0040 0000 :zero 0000 :m
+
+@dump ( -- )
+  ( TEST ONLY )
+  #00 [@ LDZk hex INC DUP #03 AND [? #2018 DEO ]@ DUP #0f AND [? #0a18 DEO ]@ DUP ]?
+  POP #0a18 DEO JMP2r
+
+@Before-alignment
+\_@ff'&[@ff00"&18<+!]  ( alignment )
+@IV
+  6a09 e667 bb67 ae85 3c6e f372 a54f f53a
+  510e 527f 9b05 688c 1f83 d9ab 5be0 cd19
+@zero
+  $40
+@SIGMA
+  c0 c4 c8 cc d0 d4 d8 dc e0 e4 e8 ec f0 f4 f8 fc
+  f8 e8 d0 e0 e4 fc f4 d8 c4 f0 c0 c8 ec dc d4 cc
+  ec e0 f0 c0 d4 c8 fc f4 e8 f8 cc d8 dc c4 e4 d0
+  dc e4 cc c4 f4 f0 ec f8 c8 d8 d4 e8 d0 c0 fc e0
+  e4 c0 d4 dc c8 d0 e8 fc f8 c4 ec f0 d8 e0 cc f4
+  c8 f0 d8 e8 c0 ec e0 cc d0 f4 dc d4 fc f8 c4 e4
+  f0 d4 c4 fc f8 f4 d0 e8 c0 dc d8 cc e4 c8 e0 ec
+  f4 ec dc f8 f0 c4 cc e4 d4 c0 fc d0 e0 d8 c8 e8
+  d8 fc f8 e4 ec cc c0 e0 f0 c8 f4 dc c4 d0 e8 d4
+  e8 c8 e0 d0 dc d8 c4 d4 fc ec e4 f8 cc f0 f4 c0
+\_@ff00"&(1E)  ( assertion )
+

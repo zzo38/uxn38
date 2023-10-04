@@ -1,0 +1,35 @@
+\_28'0p \\ This line should be set to the offset of the data table
+
+|0100
+  #0000 DUP2k #28 DEO2 #2a DEO2
+  #802e DEO #c02e DEO
+  #0126 DEO
+  [; #10 DEO2 BRK ]@
+  #0a12 DEI EQU ?nextline
+  #0101 LIT2 \_0gw 12 DEI ADD LDA
+  [@ LDAk INC [? POP2 BRK ]@ LDAk #2e DEO INC ]!
+
+@nextline
+  DUP2 #28 DEO2
+  #2a DEI2k INC2 ROT DEO2
+  BRK
+
+\_0120"0g+! fd $3a
+%x { \_@1-:::!#g0100"+0g+p }
+  "0 x 01 01 01 01 01 ff
+  "1 x 00 01 "O x 01 "M x 01 "T x 01 ff
+  "2 x 00 "J x 00 01 01 01 ff
+  "3 x 00 00 "W x 00 01 01 ff
+  "4 x 00 "V x 00 "U x 00 "A x 00 01 ff
+  "5 x 00 00 "S x 00 00 00 ff
+  "6 x 01 "H x 00 00 "I x 00 00 ff
+  "7 x 01 "B x 01 00 00 00 ff
+  "8 x 01 "Z x 01 "D x 01 00 00 ff
+  "9 x 01 01 "G x 01 "N x 01 "E x 00 ff
+  "C x 01 "R x 00 01 00 ff
+  "F x 00 00 01 00 ff
+  "L x 00 01 00 00 ff
+  "P x 00 01 01 00 ff
+  "Q x 01 "K x 01 00 01 ff
+  "X x 01 00 00 01 ff
+  "Y x 01 00 01 01 20 x ff

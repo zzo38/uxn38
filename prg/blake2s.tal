@@ -92,6 +92,26 @@
   pbh LITr -bl LDZr STZ2r
 }
 
+ ( hi1* lo1* hi2* lo2* -- lo* hi* )
+ \\ Add 32-bit numbers and swap high/low halfs
+%asw {
+  ROT2 STH2k ADD2 STH2k ROT2 ROT2 GTH2r #00 STHr ADD2 ADD2
+}
+
+ ( sigma* -- sigma* adh* adl* )
+%G1 {
+  LDAk LDZ2k ROT INC INC LDZ2
+  gah gal asw SWP2 gbh gbl asw
+  SWP2k pal pah
+  gdh EOR2 SWP2 gdl EOR2
+}
+
+ ( dh* dl* -- cl* cbh* )
+%G2 {
+  gch gcl asw SWP2k pcl pch
+  gbh EOR2
+}
+
 @G ( a* b* c* d* sigma* -- sigma* )
   .dx STZ2 .cx STZ2 .bx STZ2 .ax STZ2
   G1 SWP2k pdl pdh SWP2
@@ -99,20 +119,6 @@
   G1 ROT ROT STH2k pdl SWP DUP2 pdh STH2r
   G2 \7 rotate INC
   JMP2r
-
-@G1 ( sigma* -- sigma* adh* adl* )
-  LDAk LDZ2k ROT INC INC LDZ2
-  gah gal asw SWP2 gbh gbl asw
-  SWP2k pal pah
-  gdh EOR2 SWP2 gdl EOR2 JMP2r
-
-@G2 ( dh* dl* -- cl* cbh* )
-  gch gcl asw SWP2k pcl pch
-  gbh EOR2 JMP2r
-
-@asw ( hi1* lo1* hi2* lo2* -- lo* hi* )
-  \\ Add 32-bit numbers and swap high/low halfs
-  ROT2 STH2k ADD2 STH2k ROT2 ROT2 GTH2r #00 STHr ADD2 ADD2 JMP2r
 
 @hex ( x -- )
   DUP #04 SFT [& #0f AND ]@

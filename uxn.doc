@@ -14,7 +14,8 @@ there are no arithmetic overflow errors.
 === Stacks ===
 
 There are two stacks, which are the data stack and return stack. Each
-stack can store at least 254 bytes of data.
+stack stores 256 bytes of data, and is circular (so stack underflows and
+stack overflows are impossible).
 
 If a 16-bit value is in the stack, then the top will be the low 8-bits
 of that value and beneath that will be the high 8-bits of that value.
@@ -103,7 +104,8 @@ but if 8-bits then it is a signed relative address.
 1A MUL ( a b -- c )
   Multiplication.
 1B DIV ( a b -- c )
-  Division. (Division by zero is an error.)
+  Division (a by b). If you try to divide by zero, then the result will be
+  zero (in previous versions of this specification it was an error).
 1C AND ( a b -- c )
   Bitwise AND.
 1D ORA ( a b -- c )
@@ -133,12 +135,6 @@ address immediately after, the two bytes giving the address, modulo 65536.
 60 JSI ( -- <old_addr> )
   Unconditionally jump to a relative address, but also push the return
   address to the return stack.
-
-(There is some discussion about possibility of changing a few of the
-instructions in future; the changed instructions will be: POPk, POP2k,
-POPrk, POP2rk, NIPk, NIP2k, NIPrk, NIP2rk. So, these instructions should
-not be used at this time in published programs, until this discussion of
-these changes is concluded.)
 
 
 === Execution ===

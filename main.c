@@ -1,5 +1,5 @@
 #if 0
-gcc -s -O2 -Wno-unused-result main.c `sdl-config --cflags --libs`
+gcc -s -O2 -Wno-unused-result -fwrapv main.c `sdl-config --cflags --libs`
 exit
 #endif
 
@@ -279,11 +279,11 @@ static void uxnerr(int n,int pc) {
   errx(2,"Uxn error %d at 0x%04X",n,pc);
 }
 
-#define Push8(z) ({ if(s->p>254) {v=2; goto error;} s->d[s->p++]=(z); })
-#define Push16(z) ({ if(s->p>253) {v=2; goto error;} s->d[s->p++]=(z)>>8; s->d[s->p++]=(z); })
-#define Push(z) ({ if(s->p>(v&0x20?253:254)) {v=2; goto error;} if(v&0x20) s->d[s->p++]=(z)>>8; s->d[s->p++]=(z); })
-#define Pop8(z) ({ if(!k) {v=1; goto error;} z=s->d[--k]; if(v<0x80) s->p=k; })
-#define Pop16(z) ({ if(k<2) {v=1; goto error;} z=s->d[--k]; z|=s->d[--k]<<8; if(v<0x80) s->p=k; })
+#define Push8(z) ({ s->d[s->p++]=(z); })
+#define Push16(z) ({ s->d[s->p++]=(z)>>8; s->d[s->p++]=(z); })
+#define Push(z) ({ if(v&0x20) s->d[s->p++]=(z)>>8; s->d[s->p++]=(z); })
+#define Pop8(z) ({ z=s->d[0xFF&--k]; if(v<0x80) s->p=k; })
+#define Pop16(z) ({ z=s->d[0xFF&--k]; z|=s->d[0xFF&--k]<<8; if(v<0x80) s->p=k; })
 #define Pop(z) ({ if(v&0x20) Pop16(z); else Pop8(z); })
 
 static void run(Uint16 pc) {
@@ -341,7 +341,7 @@ static void run(Uint16 pc) {
       case 0x18: Pop(x); Pop(y); Push(y+x); break;
       case 0x19: Pop(x); Pop(y); Push(y-x); break;
       case 0x1A: Pop(x); Pop(y); Push(y*x); break;
-      case 0x1B: Pop(x); Pop(y); if(!x) {v=3; goto error;} Push(y/x); break;
+      case 0x1B: Pop(x); Pop(y); Push(x?y/x:0); break;
       case 0x1C: Pop(x); Pop(y); Push(y&x); break;
       case 0x1D: Pop(x); Pop(y); Push(y|x); break;
       case 0x1E: Pop(x); Pop(y); Push(y^x); break;
@@ -368,9 +368,6 @@ static void run(Uint16 pc) {
     break_pc=pc-1;
   }
   fflush(outf);
-  return;
-  error:
-  uxnerr(v,pc);
 }
 
 static void load_rom(void) {

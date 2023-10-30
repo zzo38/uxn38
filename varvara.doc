@@ -1,4 +1,4 @@
-This document describes the devices of Uxn virtual machine.
+This document describes the devices of Uxn/Varvara virtual machine.
 
 The high nybble of the port number selects one of the following devices:
   0 = System
@@ -37,7 +37,9 @@ In the below lists, asterisks indicate 16-bit ports.
 0E = Debug
 0F = Quit
 
-Some implementations call the system vector if an error occurs.
+The vector is unused. (In previous versions of this specification, the
+vector was used to signal errors, but no error conditions are possible in
+the current version of this specification.)
 
 Writing an address to the expansion port will execute an expansion
 operation, which is a record stored at that address; the first byte of

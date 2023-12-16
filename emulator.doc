@@ -317,6 +317,15 @@ extension; this may be read-only, write-only, or some combination. If the
 extension is not implemented, then the emulator MUST ignore it and MUST NOT
 attempt to write anything here, and MUST NOT override any devices.
 
+An example of how to use this:
+
+  @load-ext1 ( -- success ) ;ext1 #02 DEO2 ;ext1/v LDA JMP2r
+  @ext1 03 d0 <uuid> &v 00
+
+This example does not use any extra data, and selects an extension for
+device #d0. The <uuid> must be replaced by the appropriate sixteen-byte
+UUID for the extension being selected.
+
 
 === Implemented extensions ===
 

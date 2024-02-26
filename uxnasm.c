@@ -221,7 +221,7 @@ makereference(char *scope, char *label, Uint16 addr)
 	if(p.rlen == MAXREFS)
 		return error("References limit exceeded", label);
 	r = &p.refs[p.rlen++];
-	if(label[1] == '&' && scope) {
+	if((label[1] == '&' || label[1] == '/') && scope) {
 		scpy(sublabel(subw, scope, label + 2), r->name, 0x40);
 	} else if(label[1] == '{') {
 		if(p.lambda_ptr==256) return error("Lambda stack overflow", label);

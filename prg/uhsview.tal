@@ -245,8 +245,13 @@
   .Active LDZ2 LDA2 !gonode
 
 @kUp
-  
-  BRK
+  LITr -Cursor LDZ2r
+  .Active LDZ2 #0010 ADD2
+  [@
+    DUP2 STH2rk NEQ2 [? POP2 POP2r !shownode ]@
+    DUP2 #05 ADD LDA .typ/inner EQU [? DUP2 .Cursor STZ2 ]@
+    #06 ADD LDA2
+  ]!
 
 @kDown
   .Cursor LDZ2 INC2 .ActiveEnd LDZ2 GTH2 ?brk

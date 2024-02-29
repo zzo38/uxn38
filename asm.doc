@@ -84,6 +84,10 @@ The following standard tokens are available:
 
  ! and a name will make a JMI instruction jumping to that label.
 
+ / and a name will treat it like & but instead of making the label, it will
+ be a JSI to that label (since & cannot be used with JSI due to being used
+ for a different purpose, / is available for this purpose instead).
+
  " and any characters (other than whitespaces) will emit that sequence of
  characters without any opcodes or delimiters. (If you need spaces, then
  you must use separate tokens such as 20 for spaces.)

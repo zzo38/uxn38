@@ -1,0 +1,197 @@
+\\ Show text using fonts with SCOBF format
+\\ (public domain)
+
+\\ This program is a rather simple one with several limitations:
+\\ - Only one plane is possible.
+\\ - The maximum raster size is 16x127.
+\\ - It does not properly deal with unrecognized characters.
+\\ - Possibly some others.
+
+\\ (If you really want to use this font format with uxn, then you might
+\\ instead want to write a conversion program, and use that instead.)
+
+|00
+  @head
+    &magic $8
+    &xsize $1
+    &ysize $1
+    &xadj $1
+    &yadj $1
+    &defl $1
+    &defh $1
+    &asc $1
+    &desc $1
+    &numl $1
+    &numh $1
+    &plane $1
+    &volume $1
+  @chead
+    &adv $1
+    &codel $1
+    &codeh $1
+    &xsize $1
+    &ysize $1
+    &xadj $1
+    &yadj $1
+  @indata
+    &adv $1
+    &offset $4
+    &xadj $1
+    &yadj $1
+    &size $1 \\ high bit set for 16 pixels width, low 7-bits is height
+
+|0100
+  #17 DEI [? error "usage: 20 "showscobf.tal 20 "<font-filename> 0a ]@
+  \\ Colours
+  #9000 #08 DEO2k INC INC DEO2k INC INC DEO2
+  \\ Screen
+  #0140 #22 DEO2
+  #00c8 #24 DEO2
+  \\ Read file name
+  LIT2r :memory DUP2r
+  [; #10 DEO2 BRK ]@
+  #0217 DEI LTH ?load
+  #12 DEI STH2rk STA INC2r BRK
+
+@load
+  #00 STH2r STA LITr a8 DEO2r
+  #0020 #aa DEO2
+  ;head #ac DEO2
+  \\ Check header
+  .head/magic
+  LDZ2k #ff01 NEQ2 ?badform
+  INC INC LDZ2k #7363 NEQ2 ?badform
+  INC INC LDZ2k #6f62 NEQ2 ?badform
+  INC INC LDZ2 #6600 NEQ2 ?badform
+  \\ Copy parts of header
+  .head/xsize LDZ2 .chead/xsize STZ2k POP2 #80 ADD .chead/adv STZ
+  .head/xadj LDZ2 .chead/xadj STZ2
+@bloc
+  \\ Read all blocks
+  #01ab DEO
+  [; #ac DEO2 #a3 DEI [? error "Unexpected 20 "end 20 "of 20 "file 0a ]@ LIT ]@ $1
+  DUP #f0 ( end of file ) EQU ?ready
+  DUP #80 ( non-mandatory extension ) LTH [?
+    #0f AND #ab DEO ;memory #ac DEO2 !bloc
+  ]@
+  \\ Character glyph definition
+  DUP #01 GTH ?badform
+  [? ;chead #07 ][ ;chead/codel #02 ]@ #ab DEO #ac DEO2
+  \\ Set address
+  .chead/codel LDZ2
+  DUP #05 SFT INC ,extcopy1/p STR
+  SWP #30 SFT2 ,extcopy1/a STR2
+  \\ Set offset and heading data
+  LIT2 a3 -indata/adv STZ ;indata #02 DEO2
+  .chead/adv LDZ .indata/adv STZ
+  ;chead/ysize LDZ .chead/yadj LDZ ADD SUB .indata/yadj STZ
+  .chead/xadj LDZ .indata/xadj STZ
+  \\ Size
+  LIT2 ff -chead/xsize LDZ ADD DUP #0f GTH ?badform #73 SFT
+  .chead/ysize LDZ DUP #80 AND ?badform
+  ORA .indata/size STZ
+  \\ Copy to expanded memory
+  ;extcopy1 #02 DEO2
+  \\ Skip raster data
+  .indata/size LDZ DUP #7f AND SWP #07 SFT INC MUL #ab DEO
+  ;memory #ac DEO2
+  \\ Next item
+  !bloc
+
+@extcopy1
+  01 0008 0000 :indata 00 &p 01 &a 0000
+
+@extcopy2
+  01 0008 00 &p 00 &a 0000 0000 :indata
+
+@ready
+  #0002 #28 DEO2 ;head/asc LDZ INC2 #2a DEO2 \\ X/Y coordinates
+@next
+  getc
+  DUP #0a NEQ [?
+    #0002 #28 DEO2
+    #2a DEI2 ;head/asc LDZ ADD2 ;head/desc LDZ ADD2 #2a DEO2
+    ?next
+  ]@
+  DUP #20 NEQ [?
+    \\ This currently assumes the space width is always eight pixels
+    #28 DEI2 #0008 ADD2 #28 DEO2
+    ?next
+  ]@
+  DUP #fe NEQ [?
+    [@ getc #fe NEQ ]? ?next
+  ]@
+  \\ Normal character
+  getc
+  \\ Find index entry for specified character
+  OVR #05 SFT INC ,extcopy2/p STR
+  #30 SFT2 ,extcopy2/a STR2
+  ;extcopy2 #02 DEO2
+  \\ Advancement
+  ;indata/adv LDZ #0080 SUB2 #28 DEI2 ADD2 ( newx* : saved for later )
+  \\ Adjust Y coordinate
+  ;indata/yadj LDZ #0080 SUB2 #2a DEI2 STH2k ADD2 #2a DEO2
+  \\ Read raster data from file
+  LIT2 a0 -indata/adv STZ
+  ;indata/adv #02 DEO2
+  ;indata/size LDZ STHk #07 SFT INC STHrk #7f AND MUL #aa DEO2
+  ;memory DUP2 #2c DEO2 #ac DEO2
+  \\ Set graphics state
+  STHrk #47 SFT #06 ADD #26 DEO
+  \\ Convert glyph format if necessary
+  STHrk #80 LTH [?
+    ;memory
+    LITr 81 OVRr SUBr LITr 03 SFTr LITr f8 ORAr [@
+      DUP2 rearrange #0010 ADD2
+    INCr STHrk ]? POPr POP2
+  ]@
+  \\ Draw character glyph
+  #81 STHr SUB #03 SFT #f8 ORA
+  [@ #012f DEO INC DUP ]? POP
+  \\ Reset Y coordinate
+  LITr 2a DEO2r
+  \\ Update X coordinate
+  #28 DEO2
+  \\ Next character
+  !next
+
+@rearrange
+  \\ Read fourteen bytes
+  INC2 STH2k DUP2r LDA
+  INC2r STH2rk LDA2
+  INC2r INC2r STH2rk LDA2
+  INC2r INC2r STH2rk LDA2
+  INC2r INC2r STH2rk LDA2
+  INC2r INC2r STH2rk LDA2
+  INC2r INC2r STH2rk LDA2
+  INC2r INC2r STH2rk LDA
+  ( 1 2 3 4 5 6 7 8 9 a b c d e -- 2 4 6 8 a c e 1 3 5 7 9 b d )
+  \\ Write fourteen bytes
+  SWP STH2r STA ( 1 2 3 4 5 6 7 8 9 a b c e )
+  STH2rk #0006 ADD2 STA ( 1 2 3 4 5 6 7 8 9 a b c )
+  STH2rk #0005 ADD2 STA ( 1 2 3 4 5 6 7 8 9 a b )
+  STH2rk #000c ADD2 STA ( 1 2 3 4 5 6 7 8 9 a )
+  STH2rk #0004 ADD2 STA ( 1 2 3 4 5 6 7 8 9 )
+  STH2rk #000b ADD2 STA ( 1 2 3 4 5 6 7 8 )
+  STH2rk #0003 ADD2 STA ( 1 2 3 4 5 6 7 )
+  STH2rk #000a ADD2 STA ( 1 2 3 4 5 6 )
+  STH2rk INC2 INC2 STA ( 1 2 3 4 5 )
+  STH2rk #0009 ADD2 STA ( 1 2 3 4 )
+  STH2rk INC2 STA ( 1 2 3 )
+  STH2rk #0008 ADD2 STA ( 1 2 )
+  STH2rk STA ( 1 )
+  STH2r #0007 ADD2 STA
+  \\ Done
+  JMP2r
+
+@badform
+  error "Improper 20 "file 20 "format 0a
+
+@error
+  [@ LDArk STHrk #19 DEO STHr #0a EOR INC2r ]? #010f DEO
+
+@getc
+  [; #10 DEO2 BRK ]@ #12 DEI JMP2r
+
+@memory
+

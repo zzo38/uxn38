@@ -54,6 +54,51 @@ when drawing sprites.
 Other bits are currently unused.
 
 
+=== b076ddca-db5a-11ee-bddb-002618745416 (Extended text input) ===
+
+(DRAFT)
+
+This extension is used for extended text input with TRON character codes.
+The current version number is 1.
+
+The ports are:
+
+x0 - Vector *
+x2 - TRON volume
+x3 - TRON plane
+x4 - TRON code *
+x6 - Intended mode
+x7 - Effective mode
+
+The vector and intended mode should be set by the program, and the emulator
+will set the other fields to be read by the program.
+
+The mode flags are:
+
+* bit0 = Normal keyboard input (with the standard keyboard device). If
+this is set in the intended mode, then keyboard events will trigger the
+standard input device. In the effective mode, it is set if this event will
+(or did) trigger the standard input device.
+
+* bit1 = Extended keyboard input. If this is set in the intended mode, then
+it requests TRON character input, and will trigger this device's vector
+when TRON character input is available; if this bit is clear then ASCII (or
+extended ASCII) input is supported. In the effective mode, it is set if
+this event will (or did) trigger this device, which it does if a TRON
+character input is available.
+
+* bit2 = Bracketed paste. Setting it in the intended mode enables this
+feature. In the effective mode,this bit will be set if it is currently
+doing a bracketed paste.
+
+The initial value for the intended mode is 0x01. Note that bit0 and bit1
+are not mutually exclusive; if both are set, then it is possible (but not
+necessarily) that a keyboard event will trigger both devices. If neither
+bit is set, then text input is not requested (some implementations might
+use this to hide the on-screen keyboard). Also, the effective mode is set
+for both kinds of input events, regardless of the intended mode.
+
+
 === c7e5d57e-1201-11ee-bee4-002618745416 (Sequencer) ===
 
 (DRAFT)
@@ -117,4 +162,45 @@ vector so that the next call will be at a different address.
 If this extension is not available, then programs should use the screen
 vector for audio timing.
 
+
+=== d02b5508-db5d-11ee-bb94-002618745416 (Game Boy emulation) ===
+
+(DRAFT)
+
+This extension is only intended to be available for multi-system emulators
+that includes varvara and Game Boy, although this is not required (it is
+also possible to implement in an emulator that doesn't emulate the rest of
+Game Boy). (This is not fully defined yet, and cannot be used at this time.
+For example, there is currently no way to set colour/mono mode, and many
+other things are also missing.)
+
+The ports are:
+
+x0 - Vector *
+x2 - Register address
+x3 - Register data
+x4 - Display position X *
+x6 - Display position Y *
+x8 - VRAM bank 0 *
+xA - VRAM bank 1 *
+xF - Display flag
+
+The register address corresponds to addresses 0xFF00 to 0xFFFF of Game Boy
+memory, and then you can read/write the data by the register data port.
+
+Display position is the top-left corner of the Game Boy display inside of
+the varvara display.
+
+The display flag bits can be:
+
+* bit0 = Display Game Boy screen. The varvara foreground layer is displayed
+in front of the Game Boy screen; the varvara background layer is suppressed
+in the area where the Game Boy screen is displayed.
+
+* bit1 = Display objects outside of Game Boy bounding box. (If not set, the
+objects cannot be displayed outside of this bounding box.)
+
+* bit2 = Use varvara palettes for Game Boy display.
+
+Note that the varvara audio and Game Boy audio can be mixed together.
 

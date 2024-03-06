@@ -5,6 +5,7 @@ exit
 
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 /*
 Copyright (c) 2021-2023 Devine Lu Linvega, Andrew Alderwick
@@ -918,25 +919,30 @@ int
 main(int argc, char *argv[])
 {
 	FILE *src, *dst;
-	if(argc==2 && argv[1][0]=='@') printf("Program:%u Macro:%u Label:%u Reference:%u ExpItem:%u\n"
-	 ,(int)sizeof(Program),(int)sizeof(Macro),(int)sizeof(Label),(int)sizeof(Reference),(int)sizeof(ExpItem));
-	if(argc < 3)
-		return !error("usage", "input.tal output.rom [output.nam]");
-	if(!(src = fopen(argv[1], "r")))
-		return !error("Invalid input", argv[1]);
+	int c;
+	while((c=getopt(argc,argv,"+Yai:"))>0) switch(c) {
+	  case 'Y': printf("Program:%u Macro:%u Label:%u Reference:%u ExpItem:%u\n"
+	   ,(int)sizeof(Program),(int)sizeof(Macro),(int)sizeof(Label),(int)sizeof(Reference),(int)sizeof(ExpItem)); break;
+	  case 'a': p.ptr=0x100; break;
+	  case 'i': if(!parse(optarg,stdin)) return !error("Assembly", "Cannot parse command-line arguments"); break;
+	}
+	if(argc < optind+2)
+		return !error("usage", "[switches] input.tal output.rom [output.nam]");
+	if(!(src = fopen(argv[optind], "r")))
+		return !error("Invalid input", argv[optind]);
 	if(!assemble(src))
 		return !error("Assembly", "Failed to assemble rom.");
-	if(!(dst = fopen(argv[2], "wb")))
-		return !error("Invalid output", argv[2]);
+	if(!(dst = fopen(argv[optind+1], "wb")))
+		return !error("Invalid output", argv[optind+1]);
 	if(p.length <= TRIM)
 		error("Assembly", "Output rom is empty.");
 	else
 		fwrite(p.data + TRIM, p.length - TRIM, 1, dst);
 	if(p.xlen) send_expanded(dst);
-	review(argv[2]);
-	if(argc>3 && argv[3][0]) {
+	review(argv[optind+1]);
+	if(argc>optind+2 && argv[optind+2][0]) {
 	  fclose(dst);
-	  if(!(dst=fopen(argv[3],"w"))) return !error("Invalid name output",argv[3]);
+	  if(!(dst=fopen(argv[optind+2],"w"))) return !error("Invalid name output",argv[3]);
 	  send_name_output(dst);
 	}
 	return 0;

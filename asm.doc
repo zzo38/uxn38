@@ -13,6 +13,14 @@ This is optional, and if specified, then it will write a list of labels
 (including unused labels too) and their addresses to this file. (This is a
 nonstandard feature.)
 
+Switches are also allowed if preceding the other arguments:
+
+ -a will set the starting address to 0x0100.
+
+ -i followed by a token will parse that token before parsing the input
+ file. This must be a single token, and not the beginning of a macro or a
+ comment. This switch may occur multiple times.
+
 
 === Tokens ===
 

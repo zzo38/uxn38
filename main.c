@@ -1644,6 +1644,14 @@ static void do_script(Uint8 stage) {
       case 'x': // Execute
         run(o->addr);
         break;
+      case 'z': // Others
+        if(o->addr==2) {
+          if(o->len) screencompat=o->data[0];
+          blend[0][0]=(screencompat&0x01?4:0);
+        } else {
+          errx(1,"Unrecognized command -mz%X",o->addr);
+        }
+        break;
       default: errx(1,"Unrecognized command -m%c",o->kind);
     }
   }

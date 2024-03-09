@@ -379,6 +379,10 @@ Execute (x)
   Execute uxn code at the specified address, which must be nonzero, and
   cannot be in expanded memory. (The data of this command is not used.)
 
+Screen compatibility flag (z2)
+  The first byte of the data is the screen compatibility mode; see
+  extension.doc for a list of the valid flags.
+
 During the execution of any of these commands, it behaves as though the -x
 switch is specified, even if it isn't specified.
 

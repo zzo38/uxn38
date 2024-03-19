@@ -235,18 +235,18 @@ emulator to the program), ? for parameters that may be input and/or output,
 * for 16-bit values, and % for values of lengths other than 8-bits or
 16-bits or if they are of a variable length.
 
-02 >pages*
+03 device_id uuid% >version ?extra%
+  Loads a nonstandard device, or a nonstandard command for an existing
+  device or that applies globally; see below section for details. This is
+  called a "UUID-based extension".
+
+04 >pages*
   Tells number of expanded memory pages. (This is the maximum valid value
   for src_page and dst_page in expanded memory operations.) (If some of the
   pages are read-only, then this is only the number of writable pages. The
   number of writable pages might be less than the tital number of pages on
   systems with insufficient memory but that is able to emulate larger
   memory by reading from the program file instead.)
-
-03 device_id uuid% >version ?extra%
-  Loads a nonstandard device, or a nonstandard command for an existing
-  device or that applies globally; see below section for details. This is
-  called a "UUID-based extension".
 
 a0 offset%
   Given a 32-bit offset, seek the currently opened file to the specified

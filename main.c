@@ -916,26 +916,39 @@ static void do_extension_by_uuid(Uint16 addr) {
 
 static void system_exp(Device*dev,Uint16 addr) {
   Uint32 src,dst;
-  Uint16 len;
+  Uint16 len,n;
   switch(mem[addr]) {
-    case 0x01:
+    case 0x00:
       len=GET16(mem+addr+1);
-      src=(GET16(mem+addr+3)<<16L)|(GET16(mem+addr+5));
-      dst=(GET16(mem+addr+7)<<16L)|(GET16(mem+addr+9));
-      if(src+len<=MEMSIZE && dst+len<=MEMSIZE) {
-        memmove(mem+dst,mem+src,len);
+      dst=(GET16(mem+addr+3)<<16L)|(GET16(mem+addr+5));
+      if(dst<MEMSIZE && dst+len<=MEMSIZE) {
+        memset(mem+dst,mem[addr+7],len);
       } else {
         if(use_debug) fprintf(stderr,"! Access expanded memory out of range\n");
       }
       break;
-    case 0x02:
-      if(!use_extension) break;
-      PUT16(mem+addr+1,EXPANDED_MEMORY);
+    case 0x01: case 0x02:
+      len=GET16(mem+addr+1);
+      src=(GET16(mem+addr+3)<<16L)|(GET16(mem+addr+5));
+      dst=(GET16(mem+addr+7)<<16L)|(GET16(mem+addr+9));
+      if(dst<MEMSIZE && src+len<=MEMSIZE && dst+len<=MEMSIZE) {
+        if(mem[addr]==0x01) {
+          for(n=0;n<len;n++) mem[dst+n]=mem[src+n];
+        } else {
+          for(n=len;n;n--) mem[dst+n-1]=mem[src+n-1];
+        }
+      } else {
+        if(use_debug) fprintf(stderr,"! Access expanded memory out of range\n");
+      }
       break;
     case 0x03:
       if(!use_extension) break;
       mem[addr+18]=0;
       do_extension_by_uuid(addr);
+      break;
+    case 0x04:
+      if(!use_extension) break;
+      PUT16(mem+addr+1,EXPANDED_MEMORY);
       break;
   }
 }

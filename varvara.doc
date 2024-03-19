@@ -332,6 +332,12 @@ will not work correctly if these values are all zero.
 
 === Expansion ===
 
+00 length* page* addr* value
+  Fills the specified memory with a single-byte value.
+
 01 length* src_page* src_addr* dst_page* dst_addr*
-  Allows accessing expanded memory.
+  Copy memory forward.
+
+02 length* src_page* src_addr* dst_page* dst_addr*
+  Copy memory backward.
 

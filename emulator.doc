@@ -5,7 +5,9 @@
   Use double buffering for the display.
 
 -F
-  Start in full screen mode.
+  Start in full screen mode. It will decide the appropriate screen size
+  automatically if you do not specify the -w and -h switches. This does
+  not imply -S but you may specify both switches.
 
 -I
   Use a separate thread to read from stdin.

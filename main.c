@@ -1671,6 +1671,14 @@ static void do_script(Uint8 stage) {
   use_extension=u;
 }
 
+static void set_full_screen_size(void) {
+  SDL_Rect**m=SDL_ListModes(0,scrflags);
+  int i;
+  if(!m || m==(SDL_Rect**)(-1) || !*m) errx(1,"Cannot determine size to use for full screen mode");
+  default_width=m[0]->w/zoom;
+  default_height=m[0]->h/zoom;
+}
+
 int main(int argc,char**argv) {
   int i,j;
   for(i=0;i<16;i++) {
@@ -1687,7 +1695,7 @@ int main(int argc,char**argv) {
   inf=stdin; outf=stdout;
   while((i=getopt(argc,argv,"+ADFIJ:NOQST:YZa:de:h:ijm:np:qs:t:w:xyz:"))>0) switch(i) {
     case 'D': scrflags|=SDL_DOUBLEBUF; break;
-    case 'F': scrflags|=SDL_FULLSCREEN; break;
+    case 'F': scrflags|=SDL_FULLSCREEN; default_width=default_height=0; break;
     case 'I': use_thread=1; break;
     case 'J': set_joystick(optarg); break;
     case 'N': scrflags|=SDL_NOFRAME; break;
@@ -1726,10 +1734,11 @@ int main(int argc,char**argv) {
   load_rom();
   if(use_screen) {
     if(zoom<1) errx(1,"Zoom out of range");
-    if(default_height<1 || default_width<1) errx(1,"Screen size out of range");
+    if((default_height<1 || default_width<1) && !(scrflags&SDL_FULLSCREEN)) errx(1,"Screen size out of range");
     if(SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER|(audio_option?SDL_INIT_AUDIO:0)|(joy_mask?SDL_INIT_JOYSTICK:0))) errx(1,"Cannot initialize SDL: %s",SDL_GetError());
     atexit(SDL_Quit);
     device[2].out=screen_out;
+    if(!default_width && !default_height && (scrflags&SDL_FULLSCREEN)) set_full_screen_size();
     scr_w=default_width;
     scr_h=default_height;
     PUT16(device[2].d+2,scr_w);

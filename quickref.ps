@@ -1,0 +1,119 @@
+% Quick reference sheet for uxn/varvara.
+% (public domain)
+
+% Data
+/Data [
+  [() 0 (Exp) 0 (wst) (rst) (Meta) 0 (Red) 0 (Green) 0 (Blue) 0 (Debug) (Quit)] %00
+  [(Vector) 0 (In) () 0 0 0 (Type) (Out) (Err) () 0 0 0 0 0] %10
+  [(Vector) 0 (Width) 0 (Height) 0 (Auto) () (X) 0 (Y) 0 (Address) 0 (Pixel) (Sprit)] %20
+  [(Vector) 0 (Position) 0 (Out) () 0 0 (ADSR) 0 (Length) 0 (Address) 0 (Vol) (Note)] %30
+  dup %40
+  dup %50
+  dup %60
+  [16 {0} repeat] %70
+  [(Vector) 0 (P1) (Key) () 0 (P2) (P3) (P4) () 0 0 0 0 0 0 0] %80
+  [(Vector) 0 (MouseX) 0 (MouseY) 0 (Buttons) 0 () 0 (ScrollX) 0 (ScrollY) 0 () 0 0] %90
+  [() 0 (Success) 0 (Stat) 0 (Del) (Apend) (Name) 0 (Length) 0 (Read) 0 (Write) 0] %a0
+  dup %b0
+  [(Year) 0 (Month) (Day) (Hour) (Min) (Sec) (Wday) (Yday) 0 (DST) () 0 0 0 0] %c0
+  [16 {0} repeat] %d0
+  dup %e0
+  dup %f0
+] def
+/BitsData [
+  [(Count-1) 0 0 0 () (Addr) (Y) (X)  (Auto)]
+  [(Fill) (Fore) (Corner) 0 () 0 (Color) 0  (Pixel)]
+  [(2bpp) (Fore) (Vflip) (Hflip) (Color) 0 0 0  (Sprit)]
+  [(/Loop) (MIDI_Note) 0 0 0 0 0 0  (Note)]
+  [(Right) (Left) (Down) (Up) (Start) (Sel) (B) (A)  (P1)]
+] def
+
+% Page setup
+<< /PageSize [792 612] /UseFastColor true >> setpagedevice
+/Courier 14 selectfont
+.75 setlinewidth
+0 setgray
+
+% Draw devices
+0 1 15 {
+  /I exch def
+  % Columns
+  newpath 39 I 45 mul add 593 moveto
+  I 16 (?) cvrs show
+  % Rows
+  newpath 14 570 I 18 mul sub moveto
+  gsave
+    0 3 rmoveto I 16 (?) cvrs show
+  grestore
+  20 0 rmoveto
+  720 0 rlineto 0 18 rlineto -720 0 rlineto 0 -18 rlineto
+  stroke
+  0 1 15 {
+    /J exch def
+    /D Data I get J get def
+    newpath 34 J 45 mul add 570 I 18 mul sub moveto
+    D 0 eq {
+      0 2 rlineto 0 14 rmoveto 0 2 rlineto
+      stroke
+    } {
+      gsave
+        0 18 rlineto stroke
+      grestore
+      2 3 rmoveto D show
+    } ifelse
+  } for
+} bind for
+
+% Bits
+0 1 7 {
+  /I exch def
+  newpath 15 I 60 mul add 266 moveto
+  16#80 I neg bitshift 16 (??) cvrs dup length 1 eq {(0) show} if show
+} bind for
+newpath 14 264 moveto
+gsave 480 0 rlineto stroke grestore
+BitsData {
+  /D exch def
+  gsave
+    0 -18 rlineto 480 0 rlineto 0 18 rlineto stroke
+  grestore
+  0 -18 rmoveto
+  gsave
+    D {
+      gsave
+      dup 0 eq {
+        pop
+        0 2 rlineto 0 14 rmoveto 0 2 rlineto
+        stroke
+      } {
+        gsave 2 3 rmoveto show grestore
+        0 18 rlineto stroke
+      } ifelse
+      grestore
+      60 0 rmoveto
+    } forall
+  grestore
+} bind forall
+
+% Colours of sprites
+newpath 622 282 moveto
+[
+  (Color)
+  (0123456789ABCDEF)
+  (-0001-1122-2333-)
+  (0123012301230123)
+  (1231123112311231)
+  (2312231223122312)
+] {0 -16 rmoveto gsave show grestore} forall
+/I (0) stringwidth pop 16 mul 4 add def
+  -2 -2 rmoveto
+  I 0 rlineto
+  0 96 rlineto
+  I neg 0 rlineto
+  0 -96 rlineto
+  0 64 rmoveto
+  I 0 rlineto
+stroke
+
+% Done
+showpage quit

@@ -58,8 +58,12 @@ Other bits are currently unused.
 
 (DRAFT)
 
-This extension is used for extended text input with TRON character codes.
-The current version number is 1.
+This extension is used for extended text input with TRON character codes
+and/or extended IBM code pages. The current version number is 1.
+
+(I am not sure how useful this actually is (since it is not needed for
+output, nor to implement IME in ordinary uxn code), so it might be removed
+in future, or might never end up being implemented.)
 
 The ports are:
 
@@ -69,9 +73,12 @@ x3 - TRON plane
 x4 - TRON code *
 x6 - Intended mode
 x7 - Effective mode
+x8 - Code page (hi) *
+xA - Code page (lo) *
 
-The vector and intended mode should be set by the program, and the emulator
-will set the other fields to be read by the program.
+The vector and intended mode (and possibly the code page, if applicable)
+should be set by the program, and the emulator will set the other fields
+to be read by the program.
 
 The mode flags are:
 
@@ -88,8 +95,12 @@ this event will (or did) trigger this device, which it does if a TRON
 character input is available.
 
 * bit2 = Bracketed paste. Setting it in the intended mode enables this
-feature. In the effective mode,this bit will be set if it is currently
+feature. In the effective mode, this bit will be set if it is currently
 doing a bracketed paste.
+
+* bit3 = Code page. This means to use the specified code page with the
+normal keyboard input. It is set in the effective mode if the keyboard
+event is using the specified code page.
 
 The initial value for the intended mode is 0x01. Note that bit0 and bit1
 are not mutually exclusive; if both are set, then it is possible (but not
@@ -97,6 +108,16 @@ necessarily) that a keyboard event will trigger both devices. If neither
 bit is set, then text input is not requested (some implementations might
 use this to hide the on-screen keyboard). Also, the effective mode is set
 for both kinds of input events, regardless of the intended mode.
+
+The code page is an extended IBM code page number; an implementation may
+have a default value (and if it does, might set the intended mode to 0x09).
+It also might be limited as to what code pages it supports (possibly only
+one or possibly none at all), in which case it only has those values; the
+emulator may automatically change them to the supported values when setting
+them to an unsupported values, so the program may wish to read them back.
+(The code pages SHOULD be an extension of ASCII; you SHOULD NOT use EBCDIC
+code pages, please. The emulator MUST NOT automatically set the code page
+to any non-ASCII code page.)
 
 
 === c7e5d57e-1201-11ee-bee4-002618745416 (Sequencer) ===

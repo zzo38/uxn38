@@ -1,0 +1,26 @@
+This document contains instructions for compiling the programs in this
+repository, in case they are helpful for anyone.
+
+Note that these programs are designed for Linux. There is no guarantee
+that they will work on Windows; if you wish to use them on Windows, you
+may consider using WSL (although I have not tried this, because I do not
+have Microsoft Windows).
+
+
+=== Assembler ===
+
+The uxnasm.c file is the assembler and does not have any dependencies
+other than the C standard library; you can just compile it normally,
+using gcc or clang (although I have not tried clang).
+
+
+=== Emulator ===
+
+The main.c file is the emulator itself, and requires SDL1. The top of
+the main.c file contains a shell command to compile it which works on
+my computer, although your computer might be set up differently.
+
+One person, who was using Windows 11, WSL2, Ubuntu, compiled it using the
+below command, with the "libsdl1.2-compat-dev" package:
+  gcc main.c -o uxn38 -I/usr/include/SDL -D_GNU_SOURCE=1 -D_REENTRANT -lSDL -L/usr/local/lib
+

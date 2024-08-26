@@ -119,6 +119,11 @@ them to an unsupported values, so the program may wish to read them back.
 code pages, please. The emulator MUST NOT automatically set the code page
 to any non-ASCII code page.)
 
+Code page number 65535 is not normally a valid code page number in the IBM
+code page numbers, so instead code page 65535 is used here to mean whatever
+code page is used for file names (the emulator might select a different one
+instead if you specify code page 65535, but this is not guaranteed).
+
 
 === c7e5d57e-1201-11ee-bee4-002618745416 (Sequencer) ===
 

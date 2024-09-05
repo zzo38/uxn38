@@ -16,6 +16,20 @@ exit
 #include <time.h>
 #include <unistd.h>
 
+// Subprocess support
+#include <signal.h>
+#include <sys/wait.h>
+
+#ifdef __linux
+#include <pty.h>
+#include <sys/prctl.h>
+#endif
+
+#ifdef __NetBSD__
+#include <sys/ioctl.h>
+#include <util.h>
+#endif
+
 static const Uint8 fontdata[]={ // font for built-in menus
   0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x30,0x78,0x78,0x30,0x30,0x00,0x30,0x00,
   0x6C,0x6C,0x6C,0x00,0x00,0x00,0x00,0x00,0x6C,0x6C,0xFE,0x6C,0xFE,0x6C,0x6C,0x00,
@@ -427,10 +441,156 @@ static void system_out(Device*dev,Uint8 id) {
   }
 }
 
+// Subprocess support
+
+static char enable_subprocess=0;
+static char *fork_args[4] = {"/bin/sh", "-c", "", NULL};
+static int child_mode;
+static int to_child_fd[2];
+static int from_child_fd[2];
+static int saved_in;
+static int saved_out;
+static pid_t child_pid;
+
+/* call after we're sure the process has exited */
+static void console_clean_after_child(void) {
+  child_pid = 0;
+  if(child_mode & 0x01) {
+    close(to_child_fd[1]);
+    dup2(saved_out, 1);
+  }
+  if(child_mode & (0x04 | 0x02)) {
+    close(from_child_fd[0]);
+    dup2(saved_in, 0);
+  }
+  child_mode = 0;
+  saved_in = -1;
+  saved_out = -1;
+}
+
+static void console_start_fork_pipe(Device*dev) {
+  pid_t pid;
+  pid_t parent_pid = getpid();
+  int addr = GET16(dev->d+12);
+  fflush(stdout);
+  if(child_mode & 0x08) {
+    dev->d[6] = dev->d[5] = 0;
+    return;
+  }
+  if(child_mode & 0x01) {
+    /* parent writes to child's stdin */
+    if(pipe(to_child_fd) == -1) {
+      dev->d[6] = dev->d[5] = 255;
+      fprintf(stderr, "pipe error: to child\n");
+      return;
+    }
+  }
+  if(child_mode & (0x04 | 0x02)) {
+    /* parent reads from child's stdout and/or stderr */
+    if(pipe(from_child_fd) == -1) {
+      dev->d[6] = dev->d[5] = 255;
+      fprintf(stderr, "pipe error: from child\n");
+      return;
+    }
+  }
+
+  fork_args[2] = (char *)(mem + GET16(dev->d+12));
+  pid = fork();
+  if(pid < 0) { /* failure */
+    dev->d[6] = dev->d[5] = 255;
+    fprintf(stderr, "fork failure\n");
+  } else if(pid == 0) { /* child */
+
+#ifdef __linux__
+    int r = prctl(PR_SET_PDEATHSIG, SIGTERM);
+    if(r == -1) {
+      perror(0);
+      exit(6);
+    }
+    if(getppid() != parent_pid) exit(13);
+#endif
+
+    if(child_mode & 0x01) {
+      dup2(to_child_fd[0], 0);
+      close(to_child_fd[1]);
+    }
+    if(child_mode & (0x04 | 0x02)) {
+      if(child_mode & 0x02) dup2(from_child_fd[1], 1);
+      if(child_mode & 0x04) dup2(from_child_fd[1], 2);
+      close(from_child_fd[0]);
+    }
+    fflush(stdout);
+    execvp(fork_args[0], fork_args);
+    exit(1);
+  } else { /*parent*/
+    child_pid = pid;
+    dev->d[5] = 1;
+    dev->d[6] = 0;
+    if(child_mode & 0x01) {
+      saved_out = dup(1);
+      dup2(to_child_fd[1], 1);
+      close(to_child_fd[0]);
+    }
+    if(child_mode & (0x04 | 0x02)) {
+      saved_in = dup(0);
+      dup2(from_child_fd[0], 0);
+      close(from_child_fd[1]);
+    }
+  }
+}
+
+static void console_check_child(Device*dev) {
+  int wstatus;
+  if(child_pid) {
+    if(waitpid(child_pid, &wstatus, WNOHANG)) {
+      dev->d[5] = 255;
+      dev->d[6] = WEXITSTATUS(wstatus);
+      console_clean_after_child();
+    } else {
+      dev->d[5] = 1;
+      dev->d[6] = 0;
+    }
+  }
+}
+
+static void console_kill_child(Device*dev) {
+  int wstatus;
+  if(child_pid) {
+    kill(child_pid, 9);
+    if(waitpid(child_pid, &wstatus, WNOHANG)) {
+      dev->d[5] = 255;
+      dev->d[6] = WEXITSTATUS(wstatus);
+      console_clean_after_child();
+    }
+  }
+}
+
+static void console_start_fork(Device*dev) {
+  fflush(stderr);
+  console_kill_child(dev);
+  child_mode = dev->d[14];
+  console_start_fork_pipe(dev);
+}
+
+static void close_console(Device*dev) {
+  console_kill_child(dev);
+}
+
+static Uint8 subprocess_console_in(Device*dev,Uint8 id) {
+  switch(id) {
+    case 5: case 6: console_check_child(dev); break;
+  }
+  return dev->d[id];
+}
+
+// End of subprocess support
+
 static void console_out(Device*dev,Uint8 id) {
   switch(id) {
     case 8: fputc(dev->d[8],outf); break;
     case 9: fputc(dev->d[9],stderr); break;
+    // Subprocess
+    case 15: if(enable_subprocess) console_start_fork(dev); break;
   }
 }
 
@@ -895,6 +1055,7 @@ static void run_audio(void) {
 static void do_extension_by_uuid(Uint16 addr) {
   static const Uint8 uuid_8color[]="\x80\x17\x51\x32\xE2\x63\x11\xED\xB8\xC9\x00\x26\x18\x74\x54\x16";
   static const Uint8 uuid_screencompat[]="\x97\x0B\x5A\x0C\x2C\x44\x11\xEE\xAC\x3B\x00\x26\x18\x74\x54\x16";
+  static const Uint8 uuid_subprocess[]="\x9C\x5F\x13\x56\x6B\xC5\x11\xEF\xA6\xC9\x00\x26\x18\x74\x54\x16";
   int i;
   if(mem[addr+1]==0x00 && use_screen && !memcmp(mem+addr+2,uuid_8color,16)) {
     for(i=0;i<8;i++) {
@@ -911,6 +1072,9 @@ static void do_extension_by_uuid(Uint16 addr) {
     screencompat=mem[addr+19];
     blend[0][0]=(screencompat&0x01?4:0);
     mem[addr+18]=1;
+  } else if(mem[addr+1]==0x10 && use_thread && use_console && allow_write && !memcmp(mem+addr+2,uuid_subprocess,16)) {
+    device[1].in=subprocess_console_in;
+    enable_subprocess=mem[addr+18]=1;
   }
 }
 

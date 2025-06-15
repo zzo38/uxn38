@@ -1,0 +1,31 @@
+|100
+  DUP2rk EOR2rk
+  ;input #10 DEO2
+  #17 DEI [?
+    [; [@ LDAk #18 NEQk JMP BRK DEO INC2 ]! ]@
+    "Type 20 "five 20 "numbers 20 "1-6 20 "and 20 "then 20 "enter 0a18
+  ]@ BRK
+
+@input
+  #cf12 DEI ADD
+  #d9 EQUk ?enter
+  SWP #06 LTHk JMP BRK
+  SWP LITr 00 STH ADD2r
+  LITr 00 STH MUL2r BRK
+
+@enter
+  STH2r ;data ADD2
+  show show show
+  DUP2rk EOR2rk
+  #0a18 DEO
+  #0417 DEI EQU #0f DEO BRK
+
+@show
+  LDA2k
+  [@
+    DUPk [? POP POP2 INC2 INC2 JMP2r ]@
+    #1f AND #60 ADD DUP #7b EQU #4e MUL SUB #18 DEO
+    #05 SFT2
+  ]!
+
+@data \~diceware.data

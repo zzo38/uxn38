@@ -1,0 +1,17 @@
+% This program make the diceware.data file to use with diceware.tal
+/In (eff_large_wordlist.txt) (r) file def
+/Out (diceware.data) (w) file def
+/S 32 string def
+{
+  In S readline not {quit} if
+  S exch length (`````````) putinterval
+  [S 6 3 getinterval S 9 3 getinterval S 12 3 getinterval] {
+    {
+      dup 45 eq {pop 27} {96 sub} ifelse
+    } forall
+    5 bitshift add 5 bitshift add
+    Out 1 index -8 bitshift write
+    Out exch 255 and write
+  } forall
+} bind loop
+

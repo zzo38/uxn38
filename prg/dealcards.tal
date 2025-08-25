@@ -1,0 +1,50 @@
+|0100
+  LIT2r ff33
+  #c3 DEI2 INC2 ;random/x STA2
+  #c5 DEI2 #c1 DEI2 EOR2 INC2 ;random/y STA2
+  #17 DEI ?input
+@begin
+  ;deck
+  \\ Select random card
+  STHrk DUP #04 SFT ORA DUP #02 SFT ORA DUP #01 SFT ORA
+  DUP [@ POP random ADD OVR AND DUP STHrk GTH ]?
+  NIP ADD LDAk
+  \\ Display card
+  LIT2r =ranks STHk LITr 0f ANDr ADDr LDAr LITr 18 DEOr
+  LIT2r =suits STH LITr 04 SFTr ADDr LDAr LITr 18 DEOr
+  \\ Exchange card
+  LIT2r =deck ROTrk ADDr LDAr STH2 STAr POP2r
+  \\ Space
+  STHrk #0d DIVk MUL NEQ #16 MUL #0a ADD #18 DEO
+  \\ Next
+  STHrk [? #800f DEO BRK ]@
+  ADDrk NIPr !begin
+
+@deck
+  \_@
+  00 01 02 03 04 05 06 07 08 09 0a 0b 0c
+  10 11 12 13 14 15 16 17 18 19 1a 1b 1c
+  20 21 22 23 24 25 26 27 28 29 2a 2b 2c
+  30 31 32 33 34 35 36 37 38 39 3a 3b 3c
+  \_@1-^ff00"&[@E]
+
+\_@
+@suits "cdhs
+@ranks "A23456789TJQK
+\_@1-^ff00"&[@E]
+
+@input
+  [; #10 DEO2 BRK ]@
+  #0417 DEI EQU ?begin
+  random SUB #12 DEI ;random/x STA2
+  BRK
+
+@random ( -- number* )
+  ,&x LDR2
+  DUP2 #50 SFT2 EOR2
+  DUP2 #03 SFT2 EOR2
+  ,&y LDR2 DUP2 ,&x STR2
+  DUP2 #01 SFT2 EOR2 EOR2
+  ,&y STR2k POP
+  JMP2r
+  &x $2 &y $2

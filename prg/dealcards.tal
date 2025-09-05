@@ -26,7 +26,13 @@
 @input
   [; #10 DEO2 BRK ]@
   #0417 DEI EQU ?begin
-  random SUB #12 DEI ;random/x STA2
+  \\ Try to exchange cards at random due to input
+  &re
+  #3f3f random AND2
+  DUP STHrk GTH ?/re SWP DUP STHrk GTH ?/re
+  LDZk ROT LDZk STH SWP STZ STHr STZ
+  \\ Change random number seed by input
+  #12 DEI ;random/x STA
   BRK
 
 @random ( -- number* )

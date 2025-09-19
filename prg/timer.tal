@@ -340,8 +340,8 @@
   ( B ) :kToggle24 :kAlarmOff :kStop :kSave
   ( SELECT ) :kMode :kMode :kMode :kMode
   ( START ) :kNoSound :kNoSound :kNoSound :kNoSound
-  ( UP ) :kBrk :kAlUp :kTimerAdj :kHighVolume
-  ( DOWN ) :kBrk :kAlDown :kTimerAdj :kLowVolume
+  ( UP ) :kBrk :kAlUp :kTimerUp :kHighVolume
+  ( DOWN ) :kBrk :kAlDown :kTimerDown :kLowVolume
   ( LEFT ) :kBrk :kCursorL :kCursorL :kPrevChime
   ( RIGHT ) :kBrk :kCursorR :kCursorR :kNextChime
 
@@ -369,11 +369,13 @@
 
 @alarmAdjAmount .Alarm/m LDZk LIT2 09 -Cursor LDZ MUL #1c SUB JMP2r
 
+@kTimerUp LIT2 ff _kTimerAdj/x STR !kTimerAdj
+@kTimerDown LIT2 00 _kTimerAdj/x STR ( fall through )
 @kTimerAdj
   .TimerOn LDZ ?kBrk
   LIT2 -Timer -Cursor LDZ #01 STH2k SFT ADD LDZk
   STH2r AND #09 MUL #f6 ADD
-  #1082 DEI AND [? ADD #3c GTHk MUL ADD ][ SUB #3c DIVk MUL SUB ]@
+  LIT &x 00 [? ADD #3c GTHk MUL ADD ][ SUB #3c DIVk MUL SUB ]@
   SWP STZ redraw-timer BRK
 
 @kNoD POP2 BRK

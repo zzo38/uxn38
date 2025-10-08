@@ -20,3 +20,14 @@ a coauthor, if you wish).)
 
 * Git:  https://github.com/zzo38/uxn38
 
+## Docker support
+
+A Dockerfile file is provided to get you started using uxn38's uxnasm via docker. cd into uxn38 folder, Dockerfile is toplevel.
+
+```sh
+docker build -t uxn38-linux .
+```
+Example of building a rom from prg from within the uxn38 toplevel folder.
+```sh
+docker run --rm -v ".:/s" -w /s/prg --entrypoint /app/uxnasm uxn38_linux tron32to16.tal tron32to16.rom
+```

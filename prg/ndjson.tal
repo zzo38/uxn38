@@ -1,0 +1,22 @@
+|100
+  [& #5b NEQ ?brk LIT2r =normal ]@
+  DUP2k EOR2 [; #10 DEO2 @brk BRK ]@ #12 DEI JMP2rk
+@string
+  DUP #18 DEO
+  #22 OVR EQU JMP DUP2r POP2r
+  #5c NEQ ?brk brk
+@escape
+  #18 DEO POP2r BRK
+@normal
+  DUP #2c NEQ [? ROTk NIP ORA ?send POP #0a18 DEO BRK ]@
+  LIT2r =string #22 OVR EQU JMP POP2r
+  DUP #1f AND
+  DUP #1b EQU ?open #1d EQU ?close
+@send
+  #18 DEO BRK
+@open
+  POP #18 DEO INC2 BRK
+@close
+  ROTk NIP ORA [? #0a18 DEO #800f DEO ]@
+  #18 DEOk
+  EQU INCk SUB2 BRK

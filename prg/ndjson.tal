@@ -6,7 +6,7 @@
   #22 OVR EQU JMP DUP2r POP2r
   #5c NEQ ?brk brk
 @escape
-  #18 DEO POP2r BRK
+  POP2r !send
 @normal
   DUP #2c NEQ [? ROTk NIP ORA ?send POP #0a18 DEO BRK ]@
   LIT2r =string #22 OVR EQU JMP POP2r

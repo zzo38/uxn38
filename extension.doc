@@ -23,6 +23,31 @@ See: https://git.phial.org/d6/uxn11/src/branch/d6/multiprocess/console.txt
 (This extension may be obsolete; see 9c5f1356-6bc5-11ef-a6c9-002618745416)
 
 
+=== 4105259c-e061-11f0-963f-002618745416 (Random number generator) ===
+
+This extension is for the random number generator. The current verison
+number is 1.
+
+Which device number is possible depends on the implementation; some might
+ignore the device number. You should specify a device number that your
+program does not otherwise use.
+
+The data of the extension is four bytes:
+
+* First is the flag byte, which has bit0 clear for 8-bit output or set for
+16-bit output. The other bits must be clear.
+
+* Second is the number of bytes within a subroutine which the extension is
+allowed to overwrite the contents of. These number of bytes will have an
+unspecified contents after this extension is loaded successfully, and you
+should not modify them (which might or might not affect the extension).
+
+* Third is the 16-bit address of the subroutine to override.
+
+If the subroutine is called at the specified address, it will push a random
+number to the data stack followed by the effect of JMP2r.
+
+
 === 80175132-e263-11ed-b8c9-002618745416 (Colours) ===
 
 Allows setting separate foreground and background colours. The device

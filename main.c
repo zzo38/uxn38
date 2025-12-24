@@ -13,6 +13,7 @@ exit
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -248,6 +249,7 @@ static Uint8 palet=7;
 static Uint8 touch_mode=0;
 static SDL_cond*stdin_cond;
 static Uint8 screencompat=0x03;
+static int randomfd=-1;
 
 static Uint16 scriptc;
 static Script*scriptv;
@@ -810,6 +812,12 @@ static Uint8 datetime_in(Device*dev,Uint8 id) {
   }
 }
 
+static Uint8 random_in(Device*dev,Uint8 id) {
+  Uint8 x[1];
+  if(read(randomfd,x,1)!=1) err(1,"Cannot read random numbers");
+  return *x;
+}
+
 static void set_cursor(void) {
   if(hide_cursor) SDL_ShowCursor(paused || !use_mouse);
 }
@@ -1056,6 +1064,7 @@ static void do_extension_by_uuid(Uint16 addr) {
   static const Uint8 uuid_8color[]="\x80\x17\x51\x32\xE2\x63\x11\xED\xB8\xC9\x00\x26\x18\x74\x54\x16";
   static const Uint8 uuid_screencompat[]="\x97\x0B\x5A\x0C\x2C\x44\x11\xEE\xAC\x3B\x00\x26\x18\x74\x54\x16";
   static const Uint8 uuid_subprocess[]="\x9C\x5F\x13\x56\x6B\xC5\x11\xEF\xA6\xC9\x00\x26\x18\x74\x54\x16";
+  static const Uint8 uuid_random[]="\x41\x05\x25\x9C\xE0\x61\x11\xF0\x96\x3F\x00\x26\x18\x74\x54\x16";
   int i;
   if(mem[addr+1]==0x00 && use_screen && !memcmp(mem+addr+2,uuid_8color,16)) {
     for(i=0;i<8;i++) {
@@ -1075,6 +1084,19 @@ static void do_extension_by_uuid(Uint16 addr) {
   } else if(mem[addr+1]==0x10 && use_thread && use_console && allow_write && !memcmp(mem+addr+2,uuid_subprocess,16)) {
     device[1].in=subprocess_console_in;
     enable_subprocess=mem[addr+18]=1;
+  } else if(device[mem[addr+1]>>4].in==default_in && mem[addr+19]<2 && mem[addr+20]>=4 && !memcmp(mem+addr+2,uuid_random,16)) {
+    if(randomfd==-1) randomfd=open("/dev/urandom",O_RDONLY|O_NOCTTY|O_CLOEXEC);
+    if(randomfd>=0) {
+      mem[addr+18]=1;
+      device[mem[addr+1]>>4].in=random_in;
+      i=(mem[addr+21]<<8)|mem[addr+22];
+      mem[i]=0x80;
+      mem[i+1]=mem[addr+1];
+      mem[i+2]=0x16+(mem[addr+19]<<5);
+      mem[i+3]=0x6C;
+    } else {
+      warn("Cannot open /dev/urandom");
+    }
   }
 }
 

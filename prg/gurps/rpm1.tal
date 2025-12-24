@@ -1,0 +1,100 @@
+\\ Simulate energy accumulation for GURPS Ritual Path Magic
+\\ (TODO: handle critical hits)
+
+\\ Zero page usage:
+\\   00: Skill
+\\   01: Energy required *
+\\   03: Critical miss threshold
+\\   04: Time *
+\\   06: Energy acquired *
+\\   08: Quirks
+
+|0100
+  DUP2k EOR2 STH2k
+  ;RandomExt #02 DEO2
+  #c1 DEI2 #c3 DEI2 EOR2 INC ;random/x STA2
+  #c5 DEI2 #c7 DEI2 ADD2 INC ;random/y STA2
+  reseed reseed POP2
+\\ Read skill number (cannot exceed 128)
+  #17 DEI [? show "Skill? 2000 ]@
+  [; #10 DEO2 BRK ]@
+  #0a12 DEI EQU [? #0a MUL #d012 DEI ADD ADD BRK ]@
+  OVR STZk NIP
+\\ Read energy number
+  #0117 DEI LTH [? show "Energy? 2000 ]@
+  [; #10 DEO2 BRK ]@
+  #0a12 DEI EQU [? #000a MUL2 STHrk #d012 DEI ADD ADD2 BRK ]@
+  #01 STZ2
+\\ Secondary stack now has 00 00
+  STH2rk
+
+@main
+\\ Calculate the number needed for a critical miss
+\\ If x is effective skill number, then: min(x+10,max(x+2,17),18)
+  LDZk #0a ADD #12 LTHk JMP SWP POP
+  LDZrk STHr INC INC #11 GTHk JMP SWP POP
+  LTHk JMP SWP POP #03 STZ
+\\ Three tries
+  try try try
+\\ Decrement and loop
+  LDZk #01 SUB OVR STZ !main
+
+@show
+  STH2r [@ LDAk #18 DEO INC2 LDAk ]? INC2 JMP2
+
+@RandomExt
+  03 f0
+  4105 259c e061 11f0 963f 0026 1874 5416
+  $1 00 10 =random
+
+@number
+  LITr 00
+  [@ STH2 LIT2r 000a DIV2rk STH2rk MUL2r SUB2r NIPr LITr 30 ADDr ORAk ]?
+  [@ LITr 18 DEOr STHrk ]?
+  POPr #0a18 DEO JMP2r
+
+\_ff'@+8>8<! ( alignment )
+@Dice
+  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  03 04 05 06 07 08 04 05 06 07 08 09 05 06 07 08
+  09 0a 06 07 08 09 0a 0b 07 08 09 0a 0b 0c 08 09
+  0a 0b 0c 0d 04 05 06 07 08 09 05 06 07 08 09 0a
+  06 07 08 09 0a 0b 07 08 09 0a 0b 0c 08 09 0a 0b
+  0c 0d 09 0a 0b 0c 0d 0e 05 06 07 08 09 0a 06 07
+  08 09 0a 0b 07 08 09 0a 0b 0c 08 09 0a 0b 0c 0d
+  09 0a 0b 0c 0d 0e 0a 0b 0c 0d 0e 0f 06 07 08 09
+  0a 0b 07 08 09 0a 0b 0c 08 09 0a 0b 0c 0d 09 0a
+  0b 0c 0d 0e 0a 0b 0c 0d 0e 0f 0b 0c 0d 0e 0f 10
+  07 08 09 0a 0b 0c 08 09 0a 0b 0c 0d 09 0a 0b 0c
+  0d 0e 0a 0b 0c 0d 0e 0f 0b 0c 0d 0e 0f 10 0c 0d
+  0e 0f 10 11 08 09 0a 0b 0c 0d 09 0a 0b 0c 0d 0e
+  0a 0b 0c 0d 0e 0f 0b 0c 0d 0e 0f 10 0c 0d 0e 0f
+  10 11 0d 0e 0f 10 11 12 00 00 00 00 00 00 00 00
+  00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+
+@reseed
+  [& random POP2 ]@
+@random ( -- number )
+  ,&x LDR2
+  DUP2 #50 SFT2 EOR2
+  DUP2 #03 SFT2 EOR2
+  ,&y LDR2 DUP2 ,&x STR2
+  DUP2 #01 SFT2 EOR2 EOR2
+  ,&y STR2k POP ADD JMP2r
+  &x 0001 &y 0001
+
+@try
+  #04 LDZ2k INC2 ROT STZ2
+  LIT \:Dice \_8>w random LDA
+  DUP [? POP !try ]@
+  DUP #03 LDZ LTH [? show "Botched. 0a00 !done ]@
+  OVR LDZ SWP SUB EQUk ADD
+  DUP #80 LTH [? POP EQUk #08 LDZk INC SWP STZ ]@
+  LITr 06 LDZ2rk STH2 DUP ADD2r STH2rk ROTr STZ2r
+  #01 LDZ2 LTH2 STH2r JCN2
+  show "OK 0a00
+@done
+  show "Energy: 2000 #06 LDZ2 number
+  show "Time: 2000 #04 LDZ2 number
+  show "Quirks: 2000 #0008 LDZ number
+  #800f DEO BRK

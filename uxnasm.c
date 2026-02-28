@@ -82,6 +82,10 @@ static char spec_rune[128];
 static Uint16 exstart;
 static FILE*subas;
 
+static Uint8 fontkeep[LENGTH/8];
+static Uint8 fontmap[256];
+static Uint8 fontdone,fontbloc;
+
 /* clang-format off */
 
 static char ops[][4] = {
@@ -266,6 +270,15 @@ writebyte(Uint8 b)
 	return 1;
 }
 
+static inline int
+writebyte1(Uint8 b)
+{
+	if(p.ptr > 0xffff)
+		return error("Writing after the end of RAM", "");
+	if(fontbloc) fontkeep[p.ptr>>3]|=1<<(p.ptr&7);
+	return writebyte(b);
+}
+
 static int
 writeopcode(char *w)
 {
@@ -282,11 +295,27 @@ writeshort(Uint16 s, int lit)
 	return writebyte(s >> 8) && writebyte(s & 0xff);
 }
 
+static inline int
+writeshort1(Uint16 s, int lit)
+{
+	if(lit)
+		if(!writebyte(findopcode("LIT2"))) return 0;
+	return writebyte1(s >> 8) && writebyte1(s & 0xff);
+}
+
 static int
 writelitbyte(Uint8 b)
 {
 	if(!writebyte(findopcode("LIT"))) return 0;
 	if(!writebyte(b)) return 0;
+	return 1;
+}
+
+static int
+writelitbyte1(Uint8 b)
+{
+	if(!writebyte(findopcode("LIT"))) return 0;
+	if(!writebyte1(b)) return 0;
 	return 1;
 }
 
@@ -315,8 +344,35 @@ static int doinclude_binary(const char*filename) {
   FILE*f;
   int c;
   if(!(f = fopen(filename, "r"))) return error("Include missing", filename);
-  while((c=fgetc(f))!=EOF) writebyte(c);
+  while((c=fgetc(f))!=EOF) writebyte1(c);
   fclose(f);
+  return 1;
+}
+
+static int doinclude_font(const char*filename,int first) {
+  FILE*f;
+  int i,j,m;
+  if(fontdone) return error("Cannot include multiple fonts",filename);
+  if(p.ptr < p.length) return error("Memory overwrite", "");
+  if(p.ptr>63486) return error("Not enough space for font",filename);
+  if(!(f = fopen(filename, "r"))) return error("Include missing", filename);
+  m=fread(p.data+p.ptr,8,256,f);
+  fclose(f);
+  for(i=0;i<256;i++) fontmap[i]=i;
+  for(i=0;i<first;i++) fontkeep[i>>3]|=1<<(i&7);
+  for(i=TRIM;i<p.length && i<LENGTH;i++) if(fontkeep[i>>3]&(1<<(i&7))) {
+    j=p.data[i];
+    fontkeep[j>>3]|=1<<(j&7);
+  }
+  for(i=first;i<first+m && i<256;i++) {
+    if(fontkeep[i>>3]&(1<<(i&7))) {
+      p.ptr+=8; p.length=p.ptr;
+    } else {
+      for(j=i;j<256;j++) fontmap[j]--;
+      memmove(p.data+p.ptr,p.data+p.ptr+8,(first+m-i)<<3);
+    }
+  }
+  fontdone=1;
   return 1;
 }
 
@@ -476,9 +532,9 @@ parse(char *w, FILE *f)
 		if(!sihx(w + 1) || (slen(w) != 3 && slen(w) != 5))
 			return error("Invalid hex literal", w);
 		if(slen(w) == 3) {
-			if(!writelitbyte(shex(w + 1))) return 0;
+			if(!writelitbyte1(shex(w + 1))) return 0;
 		} else if(slen(w) == 5) {
-			if(!writeshort(shex(w + 1), 1)) return 0;
+			if(!writeshort1(shex(w + 1), 1)) return 0;
 		}
 		break;
 	case '.': /* literal byte zero-page */
@@ -508,7 +564,7 @@ parse(char *w, FILE *f)
 	case '"': /* raw string */
 		i = 0;
 		while((c = w[++i]))
-			if(!writebyte(c)) return 0;
+			if(!writebyte1(c)) return 0;
 		break;
 	case '?': /* JCI */
 		makereference(p.scope, w, p.ptr + 1);
@@ -556,6 +612,30 @@ parse(char *w, FILE *f)
 		    if(!exp_file(w+2)) return 0;
 		    break;
 		  case '+': w[1]='x'; makereference(0,w+1,1); break;
+		  case 'm':
+		    if(fontdone) return error("Cannot use \\m multiple times",w);
+		    if(w[2]=='k') {
+		      if(!sihx(w+3)) return error("Invalid special",w);
+		      if(slen(w+3)==2) {
+		        i=shex(w+3)&255;
+		        fontkeep[i>>3]|=1<<(i&7);
+		      } else if(slen(w+3)==4) {
+		        int j;
+		        i=shex(w+3)&0xFFFF; j=i&255; i>>=8;
+		        for(;i<=j;i++) fontkeep[i>>3]|=1<<(i&7);
+		      } else {
+		        return error("Invalid special",w);
+		      }
+		    } else {
+		      for(i=2;w[i] && w[i]!='~';i++);
+		      if(w[i]!='~') return error("Invalid special",w);
+		      w[i]=0;
+		      if(ssptr==256) return error("Stack overflow",w);
+	 	      if(!sihx(w+2)) return error("Invalid hex literal",w);
+		      sstack[ssptr++]=p.ptr-(shex(w+2)<<3);
+		      if(!doinclude_font(w+i+1,shex(w+2))) return 0;
+		    }
+		    break;
 		  default: return error("Invalid special",w);
 		}
 		break;
@@ -605,6 +685,10 @@ parse(char *w, FILE *f)
 		    p.ptr=p.length=exstart;
 		  }
 		  break;
+		} else if(w[1]=='\'' && !w[2]) {
+		  if((w[0]=='[')==fontbloc) return error("Misuse of [' or ]'",w);
+		  fontbloc=(w[0]=='[');
+		  break;
 		}
 		/* fall through */
 	default: defa:
@@ -614,11 +698,11 @@ parse(char *w, FILE *f)
 		}
 		/* raw byte */
 		else if(sihx(w) && slen(w) == 2) {
-			if(!writebyte(shex(w))) return 0;
+			if(!writebyte1(shex(w))) return 0;
 		}
 		/* raw short */
 		else if(sihx(w) && slen(w) == 4) {
-			if(!writeshort(shex(w), 0)) return 0;
+			if(!writeshort1(shex(w), 0)) return 0;
 		}
 		/* macro */
 		else if((m = findmacro(w))) {
@@ -833,6 +917,16 @@ static int align_expanded(void) {
   return 1;
 }
 
+static int resolve_fontmap(void) {
+  int i,j;
+  for(i=TRIM;i<p.length;i++) if(fontkeep[i>>3]&(1<<(i&7))) {
+    j=p.data[i];
+    if(!(fontkeep[j>>3]&(1<<(j&7)))) return error("Use of font character that has been deleted","");
+    p.data[i]=fontmap[j];
+  }
+  return 1;
+}
+
 static int
 assemble(FILE *f)
 {
@@ -847,7 +941,9 @@ assemble(FILE *f)
 		  line_comment=0;
 		}
 	}
+	if(fontbloc) return error("Misuse of [' and ]'", "");
 	p.total=p.length;
+	if(fontdone && !resolve_fontmap()) return 0;
 	if(p.xlen && !align_expanded()) return 0;
 	return resolve();
 }

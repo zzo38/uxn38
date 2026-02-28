@@ -335,3 +335,31 @@ The following nonstandard tokens are used for expanded memory:
  referenced by sub-assemblies in the same or an earlier block than the \*
  is in, but can be referenced by sub-assemblies in any later block.
 
+
+=== Compact fonts ===
+
+There is also a nonstandard feature to make 8x8 fonts compact. This uses
+the following nonstandard tokens:
+
+ [' and ]' surround a block that contains character codes to be remapped.
+ Within this block, # and " and \~ and direct numeric data is affected,
+ and anything else is not affected.
+
+ \m followed by a number and then ~ and a file name will treat that file
+ as a raw 8x8 1bpp font, and will be copied into the output like \~ does
+ but will delete unused characters from the font, and renumber the rest
+ of the characters and change the data in the [' and ]' to the renumbered
+ character codes; the number before ~ is the first character code number.
+ After this, the address of character code zero (which is not necessarily
+ a valid character code) is pushed to the special stack so that \@ can be
+ used. The \m command cannot occur more than once. Any character codes
+ that are beyond the end of the (full) font will be renumbered to numbers
+ after the end of the font with the deleted characters, so that you can
+ still add more characters in your own program beyond those in the font
+ file that is specified.
+
+ \mk followed by two or four hex digits will cause those characters to be
+ kept even if they are not used. If there are four hex digits, then it is
+ a range (inclusive on both ends), and it will guarantee that they will be
+ a contiguous range of character codes.
+

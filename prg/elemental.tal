@@ -1,0 +1,406 @@
+( Screen layout:
+   .....................
+   .....XX.XX.......XX..
+   .....XX.XX.......XX..
+   .....................
+   ..XX.XX.XX.XX....XX..
+   ..XX.XX.XX.XX....XX..
+   .....................
+   ..XX.XX.XX.XX....XX..
+   ..XX.XX.XX.XX....XX..
+   .....................
+   .....XX.XX.......XX..
+   .....XX.XX.......XX..
+   .....................
+   Score:00.......Mani:3
+   list of cards in pile
+   list of cards in pile
+)
+
+|0000
+  @Spare $40
+  @Height $10 ( Height+(Y<<2)+X; note Height is aligned at 0x10 bytes )
+  @Score $1
+  @Mani $1
+  @Cursor &X $1 &Y $1
+  @Mark &X $1 &Y $1
+  @Tableau-1 $1 @Tableau
+  ( Tableau cards at: Tableau+(0xA*((Y<<2)+X)); Z(0=bottom) )
+  ( Set high bit of cards if it is face down )
+
+|0100
+  \\ Colours
+  #a0a1 #08 DEO2k #5402 ADD2 DEO2k #bb02 ADD2 DEO2
+  \\ Screen
+  #00a8 #22 DEO2k #d802 ADD2 DEO2
+  #0126 DEO
+  \\ Sound
+  DUP2k EOR2 #38 DEO2k #0402 ADD2 DEO2
+  ;Wave #3c DEO2
+  \\ Vectors
+  ;inputVec #80 DEO2
+  \\ Random numbers
+  #c1 DEI2 #c3 DEI2 EOR2 INC ;random/x STA2
+  #c5 DEI2 #c7 DEI2 ADD2 INC ;random/y STA2
+  ;RandomExt #02 DEO2
+  random random POP2 random random POP2
+@reset
+  \\ Initialize variables
+  [& 00 0100 0000 0000 00 ]@ LITr 02 DEO2r
+  LIT2 03 -Mani STZ
+  \\ Set up deck
+  #4000 [@ #01 OVR #03 AND #40 SFT SFT OVR STZ INC EORk ]?
+  \\ Mix up cards
+  #33 [@
+    DUPk #04 SFT ORA DUP #02 SFT ORA DUP EQUk SFT ORA random AND LTHk
+    [?
+      STH2k LDZ SWPr LDZr OVR STZ SWPr STZr
+      #01 SUB DUP
+    ]@
+  POP DUP #03 NEQ ]?
+  \\ Deal cards (now the stack has #03 on top)
+  LITr 01 [@
+    #04 STHrk .Height ADD STZ
+    STHrk #0a MUL deal1 deal1 deal1 deal1 POP
+    INCr DUPr LITr 03 EQUr ADDr DUPr LITr 0c EQUr ADDr
+  STHrk #0f NEQ ]?
+  \\ Ready
+  sound fd 54 4f 4c 43 4f 00
+@display
+  \\ Tableau
+  LITr 01 [@
+    STHrk #03 AND STHrk #02 SFT cursorxy
+    .Height STHrk ADD LDZ
+    DUP [? showcard ][ STHrk #0a MUL ADD .Tableau-1 ADD revealcard ]@
+    INCr DUPr LITr 03 EQUr ADDr DUPr LITr 0c EQUr ADDr
+  STHrk #0f NEQ ]?
+  \\ Spare
+  #0500 dispspare dispspare POP
+  \\ Status
+  #000d showixy [' "Score: ]' 00
+  .Score LDZk #0a DIVk DUP [' #30 ]' ADD showc MUL SUB [' #30 ]' ADD showc
+  #0f0d showixy [' "Mani: ]' 00
+  LIT2 [' 30 ]' -Mani LDZ ADD showc
+@showcursor ( -- )
+  \\ Contents of pile
+  #0029 DEO #702b DEO #802e DEO
+  LIT2 03 -Cursor/X LDZ LTH [?
+    LIT2 -Tableau -Cursor LDZ2 #20 SFT ADD STHk #0a MUL ADD
+    LITr -Height ADDr LDZr STHk ADDr
+    [@
+      DUP STHrk EQU ?/x
+      LDZk DUP #80 LTH [? POP #07 ]@ showcard
+      INC
+    ]! &x
+  ]@
+  \\ Cursor position
+  cls2
+  LIT2 0d -Score LDZ GTH [? #000e showixy [' "You 20 "win! ]' 00 BRK ]@
+  .Cursor cursorat ;Cards/cursor showoverlay
+  .Mark LDZ2k ORA [? BRK ]@ cursorat ;Cards/mark showoverlay BRK
+
+@deal1
+  STH INC LDZk #80 ORA
+  STHrk .Tableau ADD STZ
+  STHr INC JMP2r
+
+@RandomExt
+  03 f0
+  4105 259c e061 11f0 963f 0026 1874 5416
+  $1 00 10 =random
+
+@inputVec
+  LIT2 &mem ff82 DEI EQUk ?/brk
+  DUPk ,&mem STR #08 EQU ?reset
+  LIT2 0c -Score LDZ LTH ?/brk
+  DUPk #80 EQU ?/r #40 EQU ?/l
+  DUPk #20 EQU ?/d #10 EQU ?/u
+  DUP #02 EQU ?/b #01 EQU ?/a
+  &sh showcursor &brk BRK
+
+  &r
+    .Cursor/X LDZk DUP #05 LTH ADD DUP #04 EQU ADD &rsh SWP STZ
+  !/sh
+
+  &l
+    .Cursor/X LDZk DUPk DIV SUB DUP #04 EQU SUB
+  !/rsh
+
+  &d
+    .Cursor/Y LDZk DUP #03 LTH ADD
+  !/rsh
+
+  &u
+    .Cursor/Y LDZk DUPk DIV SUB
+  !/rsh
+
+  &b
+    LITr -Cursor LDZ2r DUP2r LITr 20 SFTr ADDr
+    .Mark LDZ2 ORAk ?/un ( 00 00 )
+    STHrk .Height ADD LDZ EQU ?/sh ( 00 )
+    LIT2 05 -Cursor/X LDZ EQU ?/sh /nm
+    LIT2 02 -Cursor LDZ2 #0303 ADD2 ORA AND [?
+      \\ Move card aside
+      LDZk NEQk LDZk DUP DIV ADD LDZk DUP DIV ADD LDZk DUP DIV ADD
+      DUP #04 NEQ ?/s
+    ][
+      \\ Move top card only
+      .Mani LDZ EQU [?
+        STHrk topcard DUP #00 EQU ?/sh
+        DUPr LIT2r 0009 SFT2r [& 0201 080b 0407 0e0d ]@ ADD2r LDAr
+        STHrk topcard ?/sh
+        #01 STHrk .Height ADD STZ
+        STHr #0a MUL .Tableau ADD STZ
+        LITr -Height ADDr LDZrk LITr 01 SUBr SWPr STZr
+        LIT2 ff -Mani LDZ ADD .Mani STZ
+        sound fe 4c 49 43 42 00
+      ]@
+    ]@
+  &un DUP2k EOR2 .Mark STZ2 !display
+
+  &a
+    .Cursor LDZ2
+    .Mark LDZ2 ORAk [?
+      \\ Not already marked, so set the mark
+      SWP2
+      OVR #05 NEQ [?
+        ;Mani LDZ EQU ?/sh
+        ;Cursor/Y LDZ LDZ
+      ][
+        DUP2 #20 SFT ADD .Height ADD LDZ #00
+      ]@
+      EQU ?/sh .Mark STZ2
+      sound fd e0 00
+    ][
+      EQU2k ?/un /nm
+      OVR #05 NEQ [?
+        \\ Check if card should be moved from outside into the tableau
+        LITr 00 STH STH
+        OVR STHr EQU ?/un
+        #20 SFT ADD
+        DUP ,/ah STR
+        .Height ADD LDZk
+        DUP #0a EQU ?/un
+        STHrk LDZ STZr ( height_address height_value card )
+        .Mani LDZk #01 SUB SWP STZ
+        OVR LIT &ah $1 #0a MUL .Tableau ADD ADD STZ
+        INC SWP STZ
+        sound fe 4c 48 43 41 00
+        !/un
+      ]@
+      OVR2 OVR #05 NEQ [?
+        \\ Check if card should be moved to spare side
+        LDZk ?/un
+        POP2 #20 SFT ADD STH !/s
+      ]@
+      #20 SFT ADD
+      ( cx cy mx my cxy )
+      \\ Check for moving a pile to a adjacent empty cell
+      DUP .Height ADD LDZ [?
+        ;Mani LDZ EQU ?/un
+        STHk #0a MUL .Tableau ADD ;movepile/d STA
+        \\ Check if it is adjacent
+        SUB2k ( cx-mx-[cy<my] cy-my ) \\ 0001 0100 ff00 ffff
+        DUP2k INC2k SUB2 EQU2k STH INC EQU2 STHk INCk EQU2k STH SWP EQU2 STH2r STHr ORA2 ORA
+        #00 EQU ?/un
+        \\ It is OK
+        #20 SFT ADD
+        DUP #0a MUL .Tableau ADD ;movepile/s STA
+        .Height ADD LITr -Height ADDr
+        LDZk STHr STZ #00 SWP STZ
+        ;movepile #02 DEO2
+        .Mani LDZk #01 SUB SWP STZ
+        sound ff 48 4a 00
+        !/un
+      ]@
+      \\ Check for scoring
+      LITr 00 STH
+      \\ (Difference of X coordinates must be odd, and same with Y coordinates)
+      EOR2k AND #01 ANDk NEQ NIP ?/un
+      #20 SFT ADD
+      DUP topcard STHrk topcard ORA
+      SWP STH STH2rk
+      #030c AND2 ORA topcard STH2rk #0c03 AND2 ORA STHk topcard ORA ORA
+      #0f NEQ ?/un
+      ROTrk EORr EORr
+      LIT2 0d -Score LDZ INC DUP2 EQU .Mani LDZ MUL ADD .Score STZ
+      LIT2 03 -Mani STZ
+      [@ LITr -Height ADDr LDZrk LITr 01 SUBr SWPr STZr STHrk ]?
+      sound fe 3c 48 4f 54 5b 00
+      LIT2 0d -Score LDZ GTH ?/un
+      sound fd 30 3c 43 48 37 43 47 4a 4f 3c 48 4f 54 00
+      !display
+    ]@
+  !/sh
+
+  &s
+    \\ Move to spare
+    \\ (Now the primary stack has the slot number #00 to #03)
+    \\ (Now the secondary stack has the cursor position number #00 to #0f)
+    STHrk INC topcard STHrk #01 SUB topcard
+    STHrk #04 ADD topcard STHrk #04 SUB topcard
+    ORA2 ORA #0f EOR [?
+      LIT2 03 -Mani STZ
+      STHrk .Height ADD LDZk DUP #01 SUB ROT STZ ( spare height )
+      LITr 0a MULr STH ADDr LITr -Tableau-1 ADDr LDZr STH STZr
+      sound fd 48 4c 43 48 00
+    ]@
+  !/un
+
+  \\ Make sure cursor is not on a corner
+  &nm .Cursor LDZ2 #03 DIVk MUL SUB SWP #03 DIVk MUL SUB ORA ?return !/un
+
+@movepile 01 000a 0000 00 &s 00 0000 00 &d 00
+
+@topcard ( position -- card )
+  DUP #10 LTH [? POP #00 JMP2r ]@
+  DUP .Height ADD LDZ DUP [? NIP JMP2r ]@
+  .Tableau-1 ADD SWP #0a MUL ADD LDZ JMP2r
+
+@cls cls2 #802e DEO JMP2r
+@cls2 DUP2k EOR2 #28 DEO2k INC INC DEO2 #c02e DEO @return JMP2r
+
+@dispspare [& ]@ DUP2 cursorxy LDZk showcard INC JMP2r
+
+@cursorat ( addr -- )
+  LDZ2
+@cursorxy ( x y -- )
+  #03 MUL INC #0005 SFT2 #2a DEO2
+  #03 MUL INC INC #0005 SFT2 #28 DEO2
+  JMP2r
+
+@random ( -- number )
+  LIT2 &x 0001
+  DUP2 #50 SFT2 EOR2
+  DUP2 #03 SFT2 EOR2
+  LIT2 &y 0001 DUP2 ,&x STR2
+  DUP2 #01 SFT2 EOR2 EOR2
+  ,&y STR2k POP2
+  JMP2r
+
+@showc ( char -- )
+  #0005 SFT2 ;Font ADD2 #2c DEO2
+  #012f DEO
+  JMP2r
+
+@showixy ( x y -- )
+  #0005 SFT2 #2a DEO2
+  #0005 SFT2 #28 DEO2
+@showi ( -- )
+  [@
+    LDArk STHr INC2r DUP [? POP JMP2r ]@
+    #0005 SFT2 ;Font ADD2 #2c DEO2
+    #012f DEO
+  ]!
+
+@revealcard ( addr -- )
+  LDZk #7f AND SWPk STZ NIP
+@showcard ( card -- )
+  #0005 SFT2 ;Cards ADD2 #2c DEO2
+  #012f DEO #112f DEO
+  #2b DEIk STHk #08 ADD SWP DEO
+  #212f DEO #312f DEO
+  LITr 2b DEOr #29 DEIk #10 ADD SWP DEO
+  JMP2r
+
+@showoverlay ( picture* -- )
+  #2c DEO2
+  #c52f DEO #d52f DEO
+  #2b DEIk #08 ADD SWP DEO
+  #e52f DEO #f52f DEO
+  JMP2r
+
+@sound ( -- )
+  #ee3e DEO
+  STH2rk LDAk ,&len STR INC2 ,&addr STR2
+  [@ STH2rk INC2r LDA ]?
+  LIT2 00 _&time STR
+  [; #20 DEO2 JMP2r ]@
+  LIT &time $1 DUP [?
+    LIT2 &addr $2 INC2k ,&addr STR2 LDA
+    DUP [? DUP #3e DEO DUPk #20 DEO2 ]@
+    #3f DEO
+    POP LIT &len $1
+  ]@ INC ,&time STR BRK
+
+@Cards
+
+@Cards/vacant
+  \-01010101
+  \-1.......
+  \-0.......
+  \-1.......
+  \-0.......
+  \-1.......
+  \-0.......
+  \-1.......;
+
+  \-11111111
+  \-1.......
+  \-1.......
+  \-1......1
+  \-1......1
+  \-1......1
+  \-1......1
+  \-1..11111;
+
+  \-11111111
+  \-1.......
+  \-1.......
+  \-1..11...
+  \-1..111..
+  \-1...111.
+  \-1....111
+  \-1.....11;
+@Wave 00 7f ff 80
+  $4
+
+  \-11111111
+  \-1.......
+  \-1....111
+  \-1...1111
+  \-1..111..
+  \-1.111...
+  \-1.11....
+  \-1.11....;
+
+@Cards/cursor
+  \=32222223
+  \=23333332
+  \=23......
+  \=23......
+  \=23......
+  \=23......
+  \=23......
+  \=32......;
+
+@Cards/back
+  \-11111111
+  \-10010010
+  \-10010010
+  \-11111111
+  \-10010010
+  \-10010010
+  \-11111111
+  \-10010010;
+
+  \-11111111
+  \-1.......
+  \-1.......
+  \-1......1
+  \-1.....11
+  \-1....111
+  \-1...1111
+  \-1..11111;
+
+@Cards/mark
+  \=........
+  \=........
+  \=..232323
+  \=..3.....
+  \=..2.....
+  \=..3.....
+  \=..2.....
+  \=..3.....;
+
+\mk3039 \m20~ascii.font \@Font

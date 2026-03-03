@@ -61,7 +61,7 @@
   \\ Deal cards (now the stack has #03 on top)
   LITr 01 [@
     #04 STHrk .Height ADD STZ
-    STHrk #0a MUL deal1 deal1 deal1 deal1 POP
+    STHrk #0a MUL deal2 deal2 POP
     INCr DUPr LITr 03 EQUr ADDr DUPr LITr 0c EQUr ADDr
   STHrk #0f NEQ ]?
   \\ Ready
@@ -85,7 +85,7 @@
   \\ Contents of pile
   #0029 DEO #702b DEO #802e DEO
   LIT2 03 -Cursor/X LDZ LTH [?
-    LIT2 -Tableau -Cursor LDZ2 #20 SFT ADD STHk #0a MUL ADD
+    LIT2 -Tableau -Cursor LDZ2 xym STHk #0a MUL ADD
     LITr -Height ADDr LDZr STHk ADDr
     [@
       DUP STHrk EQU ?/x
@@ -99,6 +99,8 @@
   .Cursor cursorat ;Cards/cursor showoverlay
   .Mark LDZ2k ORA [? BRK ]@ cursorat ;Cards/mark showoverlay BRK
 
+@deal2
+  [& ]@
 @deal1
   STH INC LDZk #80 ORA
   STHrk .Tableau ADD STZ
@@ -167,17 +169,17 @@
         ;Mani LDZ EQU ?/sh
         ;Cursor/Y LDZ LDZ
       ][
-        DUP2 #20 SFT ADD .Height ADD LDZ #00
+        DUP2 xym .Height ADD LDZ #00
       ]@
       EQU ?/sh .Mark STZ2
-      sound fd e0 00
+      \\ sound fd e0 00
     ][
       EQU2k ?/un /nm
       OVR #05 NEQ [?
         \\ Check if card should be moved from outside into the tableau
         LITr 00 STH STH
         OVR STHr EQU ?/un
-        #20 SFT ADD
+        xym
         DUP ,/ah STR
         .Height ADD LDZk
         DUP #0a EQU ?/un
@@ -191,9 +193,9 @@
       OVR2 OVR #05 NEQ [?
         \\ Check if card should be moved to spare side
         LDZk ?/un
-        POP2 #20 SFT ADD STH !/s
+        POP2 xym STH !/s
       ]@
-      #20 SFT ADD
+      xym
       ( cx cy mx my cxy )
       \\ Check for moving a pile to a adjacent empty cell
       DUP .Height ADD LDZ [?
@@ -204,7 +206,7 @@
         DUP2k INC2k SUB2 EQU2k STH INC EQU2 STHk INCk EQU2k STH SWP EQU2 STH2r STHr ORA2 ORA
         #00 EQU ?/un
         \\ It is OK
-        #20 SFT ADD
+        xym
         DUP #0a MUL .Tableau ADD ;movepile/s STA
         .Height ADD LITr -Height ADDr
         LDZk STHr STZ #00 SWP STZ
@@ -217,7 +219,7 @@
       LITr 00 STH
       \\ (Difference of X coordinates must be odd, and same with Y coordinates)
       EOR2k AND #01 ANDk NEQ NIP ?/un
-      #20 SFT ADD
+      xym
       DUP topcard STHrk topcard ORA
       SWP STH STH2rk
       #030c AND2 ORA topcard STH2rk #0c03 AND2 ORA STHk topcard ORA ORA
@@ -253,7 +255,7 @@
 @movepile 01 000a 0000 00 &s 00 0000 00 &d 00
 
 @topcard ( position -- card )
-  DUP #10 LTH [? POP #00 JMP2r ]@
+  DUP #10 LTH [? INCk EQU JMP2r ]@
   DUP .Height ADD LDZ DUP [? NIP JMP2r ]@
   .Tableau-1 ADD SWP #0a MUL ADD LDZ JMP2r
 
@@ -352,8 +354,7 @@
   \-1...111.
   \-1....111
   \-1.....11;
-@Wave 00 7f ff 80
-  $4
+@Wave 00 7f ff @xym #20 SFT ADD JMP2r
 
   \-11111111
   \-1.......
@@ -365,14 +366,14 @@
   \-1.11....;
 
 @Cards/cursor
-  \=32222223
-  \=23333332
-  \=23......
-  \=23......
-  \=23......
-  \=23......
-  \=23......
-  \=32......;
+  \=2.......
+  \=.3333332
+  \=.3......
+  \=.3......
+  \=.3......
+  \=.3......
+  \=.3......
+  \=.2......;
 
 @Cards/back
   \-11111111

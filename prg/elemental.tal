@@ -117,7 +117,7 @@
   LIT2 0c -Score LDZ LTH ?/brk
   DUPk #80 EQU ?/r #40 EQU ?/l
   DUPk #20 EQU ?/d #10 EQU ?/u
-  DUP #02 EQU ?/b #01 EQU ?/a
+  DUPk #02 EQU ?/b EQUk EQU ?/a
   &sh showcursor &brk BRK
 
   &r
@@ -243,7 +243,7 @@
     STHrk #04 ADD topcard STHrk #04 SUB topcard
     ORA2 ORA #0f EOR [?
       LIT2 03 -Mani STZ
-      STHrk .Height ADD LDZk DUP #01 SUB ROT STZ ( spare height )
+      STHrk .Height ADD LDZk DUP EQUk SUB ROT STZ ( spare height )
       LITr 0a MULr STH ADDr LITr -Tableau-1 ADDr LDZr STH STZr
       sound fd 48 4c 43 48 00
     ]@
@@ -255,7 +255,7 @@
 @movepile 01 000a 0000 00 &s 00 0000 00 &d 00
 
 @topcard ( position -- card )
-  DUP #10 LTH [? INCk EQU JMP2r ]@
+  DUP #10 LTH [? DUP EOR JMP2r ]@
   DUP .Height ADD LDZ DUP [? NIP JMP2r ]@
   .Tableau-1 ADD SWP #0a MUL ADD LDZ JMP2r
 
@@ -267,8 +267,8 @@
 @cursorat ( addr -- )
   LDZ2
 @cursorxy ( x y -- )
-  #03 MUL INC #0005 SFT2 #2a DEO2
-  #03 MUL INC INC #0005 SFT2 #28 DEO2
+  #03 MUL INC mul8 #2a DEO2
+  #03 MUL INC INC mul8 #28 DEO2
   JMP2r
 
 @random ( -- number )
@@ -281,36 +281,40 @@
   JMP2r
 
 @showc ( char -- )
-  #0005 SFT2 ;Font ADD2 #2c DEO2
+  mul8 ;Font ADD2 #2c DEO2
   #012f DEO
   JMP2r
 
 @showixy ( x y -- )
-  #0005 SFT2 #2a DEO2
-  #0005 SFT2 #28 DEO2
+  mul8 #2a DEO2
+  mul8 #28 DEO2
 @showi ( -- )
   [@
     LDArk STHr INC2r DUP [? POP JMP2r ]@
-    #0005 SFT2 ;Font ADD2 #2c DEO2
+    mul8 ;Font ADD2 #2c DEO2
     #012f DEO
   ]!
 
 @revealcard ( addr -- )
   LDZk #7f AND SWPk STZ NIP
 @showcard ( card -- )
-  #0005 SFT2 ;Cards ADD2 #2c DEO2
-  #012f DEO #112f DEO
-  #2b DEIk STHk #08 ADD SWP DEO
-  #212f DEO #312f DEO
-  LITr 2b DEOr #29 DEIk #10 ADD SWP DEO
+  mul8 ;Cards ADD2 #2c DEO2
+  halfshow 01
+  DEIk STHk #08 ADD SWP DEO
+  halfshow 21
+  STH DEOr #29 DEIk #10 ADD SWP DEO
   JMP2r
 
 @showoverlay ( picture* -- )
   #2c DEO2
-  #c52f DEO #d52f DEO
-  #2b DEIk #08 ADD SWP DEO
-  #e52f DEO #f52f DEO
-  JMP2r
+  halfshow c5
+  DEIk #08 ADD SWP DEO
+  halfshow e5
+  POP JMP2r
+
+@halfshow #2b LDArk LITr 2f DEOrk LIT2r 1000 ADD2r DEOr INC2r JMP2r
+
+@mul8 ( in -- out* ) #0005 SFT2 JMP2r
 
 @sound ( -- )
   #ee3e DEO

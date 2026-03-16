@@ -1,22 +1,3 @@
-( Screen layout:
-   .....................
-   .....XX.XX.......XX..
-   .....XX.XX.......XX..
-   .....................
-   ..XX.XX.XX.XX....XX..
-   ..XX.XX.XX.XX....XX..
-   .....................
-   ..XX.XX.XX.XX....XX..
-   ..XX.XX.XX.XX....XX..
-   .....................
-   .....XX.XX.......XX..
-   .....XX.XX.......XX..
-   .....................
-   Score:00.......Mani:3
-   list of cards in pile
-   list of cards in pile
-)
-
 |0000
   @Spare $40
   @Height $10 ( Height+(Y<<2)+X; note Height is aligned at 0x10 bytes )
@@ -97,7 +78,7 @@
   cls2
   LIT2 0d -Score LDZ GTH [? #000e showixy [' "You 20 "win! ]' 00 BRK ]@
   .Cursor cursorat ;Cards/cursor showoverlay
-  .Mark LDZ2k ORA [? BRK ]@ cursorat ;Cards/mark showoverlay BRK
+  .Mark LDZ2k ORA [? BRK ]@ cursorat ;Cards/mark showoverlay @brk BRK
 
 @deal2
   [& ]@
@@ -112,29 +93,29 @@
   $1 00 10 =random
 
 @inputVec
-  LIT2 &mem ff82 DEI EQUk ?/brk
+  LIT2 &mem ff82 DEI EQUk ?brk
   DUPk ,&mem STR #08 EQU ?reset
-  LIT2 0c -Score LDZ LTH ?/brk
+  LIT2 0c -Score LDZ LTH ?brk
   DUPk #80 EQU ?/r #40 EQU ?/l
   DUPk #20 EQU ?/d #10 EQU ?/u
   DUPk #02 EQU ?/b EQUk EQU ?/a
-  &sh showcursor &brk BRK
+  &sh showcursor
 
   &r
-    .Cursor/X LDZk DUP #05 LTH ADD DUP #04 EQU ADD &rsh SWP STZ
+    .Cursor/X LDZk DUP #05 LTH ADD DUP #04 EQU &rsa ADD &rsh SWP STZ
   !/sh
 
   &l
-    .Cursor/X LDZk DUPk DIV SUB DUP #04 EQU SUB
+    .Cursor/X &rss LDZk DUPk DIV SUB DUP #04 EQU SUB
   !/rsh
 
   &d
-    .Cursor/Y LDZk DUP #03 LTH ADD
-  !/rsh
+    .Cursor/Y LDZk DUP #03 LTH
+  !/rsa
 
   &u
-    .Cursor/Y LDZk DUPk DIV SUB
-  !/rsh
+    .Cursor/Y
+  !/rss
 
   &b
     LITr -Cursor LDZ2r DUP2r LITr 20 SFTr ADDr
@@ -154,7 +135,7 @@
         #01 STHrk .Height ADD STZ
         STHr #0a MUL .Tableau ADD STZ
         LITr -Height ADDr LDZrk LITr 01 SUBr SWPr STZr
-        LIT2 ff -Mani LDZ ADD .Mani STZ
+        decmani
         sound fe 4c 49 43 42 00
       ]@
     ]@
@@ -172,7 +153,6 @@
         DUP2 xym .Height ADD LDZ #00
       ]@
       EQU ?/sh .Mark STZ2
-      \\ sound fd e0 00
     ][
       EQU2k ?/un /nm
       OVR #05 NEQ [?
@@ -184,7 +164,7 @@
         .Height ADD LDZk
         DUP #0a EQU ?/un
         STHrk LDZ STZr ( height_address height_value card )
-        .Mani LDZk #01 SUB SWP STZ
+        decmani
         OVR LIT &ah $1 #0a MUL .Tableau ADD ADD STZ
         INC SWP STZ
         sound fe 4c 48 43 41 00
@@ -211,7 +191,7 @@
         .Height ADD LITr -Height ADDr
         LDZk STHr STZ #00 SWP STZ
         ;movepile #02 DEO2
-        .Mani LDZk #01 SUB SWP STZ
+        decmani
         sound ff 48 4a 00
         !/un
       ]@
@@ -263,6 +243,8 @@
 @cls2 DUP2k EOR2 #28 DEO2k INC INC DEO2 #c02e DEO @return JMP2r
 
 @dispspare [& ]@ DUP2 cursorxy LDZk showcard INC JMP2r
+
+@decmani .Mani LDZk #01 SUB SWP STZ JMP2r
 
 @cursorat ( addr -- )
   LDZ2

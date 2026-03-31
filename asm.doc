@@ -149,6 +149,11 @@ The following nonstandard tokens are available:
  for 2bpp tiles. The colour codes are . or 0 for the background colour,
  and numbers 1 2 3 for the other colours.
 
+ \r will cause it to automatically change opcodes without "r" to the ones
+ with "r" and vice-versa until the next \r token. This also affects the
+ # and , and . and ; tokens, and causes the uses of JSI and JCI to be
+ errors (but JMI and BRK are OK and are not affected by \r).
+
  [@ makes a anonymous label; the matching ] command will reference the
  same anonymous label as this one. (Nesting is allowed.)
 

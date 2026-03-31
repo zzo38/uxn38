@@ -81,6 +81,7 @@ static Uint16 bstack[256];
 static char spec_rune[128];
 static Uint16 exstart;
 static FILE*subas;
+static Uint8 exchstack;
 
 static Uint8 fontkeep[LENGTH/8];
 static Uint8 fontmap[256];
@@ -160,7 +161,7 @@ findopcode(char *s)
 				return 0; /* failed to match */
 			m++;
 		}
-		return i;
+		return i^exchstack;
 	}
 	return 0;
 }
@@ -567,6 +568,7 @@ parse(char *w, FILE *f)
 			if(!writebyte1(c)) return 0;
 		break;
 	case '?': /* JCI */
+		if(exchstack) return error("Cannot use JCI with \\r", w);
 		makereference(p.scope, w, p.ptr + 1);
 		return writebyte(0x20) && writeshort(0xffff, 0);
 	case '!': /* JMI */
@@ -636,6 +638,7 @@ parse(char *w, FILE *f)
 		      if(!doinclude_font(w+i+1,shex(w+2))) return 0;
 		    }
 		    break;
+		  case 'r': exchstack^=0x40; break;
 		  default: return error("Invalid special",w);
 		}
 		break;
@@ -712,6 +715,7 @@ parse(char *w, FILE *f)
 			line_comment=0;
 			return 1;
 		} else {
+			if(exchstack) return error("Cannot use JSI with \\r", w);
 			*word='!';
 			scpy(w,word+1,62);
 			makereference(p.scope, word, p.ptr + 1);

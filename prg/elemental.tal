@@ -27,7 +27,7 @@
   random random POP2 random random POP2
 @reset
   \\ Initialize variables
-  [& 00 0100 0000 0000 00 ]@ LITr 02 DEO2r
+  ;Vinit #02 DEO2
   LIT2 03 -Mani STZ
   \\ Set up deck
   #4000 [@ #01 OVR #03 AND #40 SFT SFT OVR STZ INC EORk ]?
@@ -82,7 +82,6 @@
 
 @deal2
   [& ]@
-@deal1
   STH INC LDZk #80 ORA
   STHrk .Tableau ADD STZ
   STHr INC JMP2r
@@ -96,29 +95,27 @@
   LIT2 &mem ff82 DEI EQUk ?brk
   DUPk ,&mem STR #08 EQU ?reset
   LIT2 0c -Score LDZ LTH ?brk
+  LITr -Cursor
   DUPk #80 EQU ?/r #40 EQU ?/l
-  DUPk #20 EQU ?/d #10 EQU ?/u
+  INCrk
+  DUPk #20 EQU ?/d #10 EQU ?/l
   DUPk #02 EQU ?/b EQUk EQU ?/a
   &sh showcursor
 
   &r
-    .Cursor/X LDZk DUP #05 LTH ADD DUP #04 EQU &rsa ADD &rsh SWP STZ
+    \r LDZk DUP #05 LTH ADD DUP #04 EQU &rsa ADD &rsh SWP STZ \r
   !/sh
 
   &l
-    .Cursor/X &rss LDZk DUPk DIV SUB DUP #04 EQU SUB
+    \r LDZk DUPk DIV SUB DUP #04 EQU SUB \r
   !/rsh
 
   &d
-    .Cursor/Y LDZk DUP #03 LTH
+    \r LDZk DUP #03 LTH \r
   !/rsa
 
-  &u
-    .Cursor/Y
-  !/rss
-
   &b
-    LITr -Cursor LDZ2r DUP2r LITr 20 SFTr ADDr
+    POPr LDZ2r DUP2r LITr 20 SFTr ADDr
     .Mark LDZ2 ORAk ?/un ( 00 00 )
     STHrk .Height ADD LDZ EQU ?/sh ( 00 )
     LIT2 05 -Cursor/X LDZ EQU ?/sh /nm
@@ -239,12 +236,12 @@
   DUP .Height ADD LDZ DUP [? NIP JMP2r ]@
   .Tableau-1 ADD SWP #0a MUL ADD LDZ JMP2r
 
-@cls cls2 #802e DEO JMP2r
+\\ @cls cls2 #802e DEO JMP2r
 @cls2 DUP2k EOR2 #28 DEO2k INC INC DEO2 #c02e DEO @return JMP2r
 
 @dispspare [& ]@ DUP2 cursorxy LDZk showcard INC JMP2r
 
-@decmani .Mani LDZk #01 SUB SWP STZ JMP2r
+@decmani .Mani LDZk NEQk SUB SWP STZ JMP2r
 
 @cursorat ( addr -- )
   LDZ2
@@ -390,4 +387,5 @@
   \=..2.....
   \=..3.....;
 
+@Vinit 0001
 \mk3039 \m20~ascii.font \@Font

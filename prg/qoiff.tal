@@ -1,0 +1,49 @@
+|0100
+  \\ Identification
+  LITr fd input INCr STHrk cinput
+  #18 STH2k DEO ( f )
+  #02f8 ADD2 STHrk DEO STHrk DEO ( ar )
+  #0f SUB STHrk DEO DEOr ( bf )
+  #6518 DEO #6c18 DEO #6418 DEO
+  \\ Width/height
+  #f8 input #18 DEO INC DUP cinput
+  \\ Two ignored bytes
+  input #ff00 DUPk
+@main
+  input STHk #16 SFT INC LDR2 JMP2 =op_index =op_diff =op_luma =op_rgb
+@op_rgb
+  STHrk #fe LTH [?
+    \\ RGB(A)
+    POP POP2
+    STHr INC
+    input input STH2 input
+    SWP [? input SWP ]@
+    STHr STHr
+    !send
+  ]@
+  \\ Run 1-62
+  LITr 3f EORr
+  LIT LIT2 ;send/op STA
+  !send
+@op_diff
+  ( blue ) SWP2 STHrk #03 AND #02 SUB ADD ( graB )
+  ( green ) SWP2 SWP STHrk #02 SFT #03 AND #02 SUB ADD ( aBrG )
+  ( red ) SWP STHr #04 SFT #06 SUB ADD ( aBGR )
+  !send
+@op_luma
+  LITr 60 ADDr
+  ( green ) SWP STHrk ADD ( abrG )
+  ( red ) SWP input STH STH2rk #04 SFT #08 SUB ADD ADD ( abGR )
+  ( blue ) LITr 0f ANDr ADDr SWP2 STHr #08 SUB ADD SWP2 ( aBGR )
+  !send
+@op_index
+  STHr #04 MUL LDZ2k ROT INC INC LDZ2 SWP2
+@send
+  OVR2 OVR2 OVR2 OVR2
+  #67 MUL ADD #93 MUL ADD #75 MUL ADD #2c MUL
+  STZ2k NIP NIP INC INC STZ2
+  &loop OVR2 OVR2 sendpart sendpart
+  &op !main POP2 INCr STHrk ?/loop LIT2 40 _/op STR BRK
+
+@cinput [? @input LITr _/x STR2r [; #10 DEO2 BRK ]@ #12 DEI LIT2 &x $2 JMP2 ]@ POP2r BRK
+@sendpart [& ]@ #18 DEOk DEO JMP2r
